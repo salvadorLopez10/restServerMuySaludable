@@ -1,60 +1,59 @@
 import express, { Application } from 'express';
 import userRoutes from "../routes/usuario";
 import alimentoRoutes from "../routes/alimento";
+import catalogoPorcionTiposRoutes from "../routes/catalogo_porcion_tipo";
 import cors from "cors";
 import db from '../db/connection';
 
 class Server {
+  private app: Application;
+  private port: string;
+  private apiPaths = {
+    usuarios: "/api/usuarios",
+    alimentos: "/api/alimentos",
+    catalogoPorcionTipos: "/api/catalogoPorcionTipos",
+  };
 
-    private app: Application ;
-    private port: string ;
-    private apiPaths = {
-        usuarios: '/api/usuarios',
-        alimentos: '/api/alimentos',
+  constructor() {
+    this.app = express();
+    this.port = process.env.PORT || "8000";
+
+    this.dbConnection();
+    this.middlewares();
+    this.routes();
+  }
+
+  async dbConnection() {
+    try {
+      await db.authenticate();
+      console.log("DATABASE CONNECTED");
+    } catch (error) {
+      console.log("ERROR " + error);
     }
+  }
 
+  middlewares() {
+    //CORS
+    this.app.use(cors());
 
-    constructor(){
-        this.app = express();
-        this.port = process.env.PORT || '8000' ;
+    //Lectura del body
+    this.app.use(express.json());
 
-        this.dbConnection();
-        this.middlewares();
-        this.routes();
-    }
+    //Carpeta públia
+    this.app.use(express.static("public"));
+  }
 
-    async dbConnection(){
-        try {
+  routes() {
+    this.app.use(this.apiPaths.usuarios, userRoutes);
+    this.app.use(this.apiPaths.alimentos, alimentoRoutes);
+    this.app.use(this.apiPaths.catalogoPorcionTipos, catalogoPorcionTiposRoutes);
+  }
 
-            await db.authenticate();
-            console.log("DATABASE CONNECTED")
-            
-        } catch (error) {
-            console.log("ERROR " + error )
-        }
-    }
-
-    middlewares(){
-        //CORS
-        this.app.use( cors() );
-
-        //Lectura del body
-        this.app.use( express.json() );
-
-        //Carpeta públia
-        this.app.use( express.static('public') );
-    }
-
-    routes() {
-        this.app.use( this.apiPaths.usuarios, userRoutes );
-        this.app.use(this.apiPaths.alimentos, alimentoRoutes);
-    }
-
-    listen() {
-        this.app.listen( this.port, () => {
-            console.log("Servidor corriendo en el puerto: " + this.port);
-        });
-    }
+  listen() {
+    this.app.listen(this.port, () => {
+      console.log("Servidor corriendo en el puerto: " + this.port);
+    });
+  }
 }
 
 export default Server;
