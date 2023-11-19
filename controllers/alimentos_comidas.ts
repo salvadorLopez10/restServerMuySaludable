@@ -35,7 +35,7 @@ export const postRelacionAlimentosComidas = async (req: Request, res: Response) 
 
   try {
     
-    const relacion = new AlimentosComidas(body);
+    const relacion = new AlimentosComidas();
     await relacion.save();
 
     res.json(relacion);
@@ -54,6 +54,7 @@ export const crearComidaConAlimentos = async (
   const { nombre, tipo, alimentos } = req.body;
 
   try {
+    
     //Creando comida
     const nuevaComida = await Comida.create({
       nombre,
@@ -61,18 +62,24 @@ export const crearComidaConAlimentos = async (
     });
 
     // Obtiene el id de la comida recién creada
-    const comidaId = nuevaComida.id;
+    const {comidaId} = nuevaComida.getDataValue('id');
+
+    interface AlimentoTipo {
+      id_alimento: number;
+      cantidad: number;
+      id_catalogo_porcion_tipos: number
+    }
 
     //Una vez generada la comida, se procede a guardar en la tabla que relaciona a los alimentos con la comida
     await Promise.all(
-      alimentos.map(async (alimento) => {
+      alimentos.map(async (alimento:AlimentoTipo) => {
         const bodyRelacion = {
           id_comida: comidaId,
           id_alimento: alimento.id_alimento,
           cantidad: alimento.cantidad,
           id_catalogo_porcion_tipos: alimento.id_catalogo_porcion_tipos,
         };
-        const relacion = new AlimentosComidas(bodyRelacion);
+        const relacion = new AlimentosComidas();
         await relacion.save();
       })
     );
@@ -84,49 +91,4 @@ export const crearComidaConAlimentos = async (
       msg: "Error: Contacte al administrador",
     });
   }
-};
-
-export const putUsuario = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { body } = req;
-
-  try {
-    const usuario = await Usuario.findByPk(id);
-    if (!usuario) {
-      return res.status(404).json({
-        msg: "No existe un usuario con el id " + id,
-      });
-    }
-
-    await usuario.update(body);
-
-    res.json(usuario);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      msg: "Error: Contacte al administrador",
-    });
-  }
-};
-
-export const deleteUsuario = async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  const usuario = await Usuario.findByPk(id);
-  if (!usuario) {
-    return res.status(404).json({
-      msg: "No existe un usuario con el id " + id,
-    });
-  }
-
-  //Eliminación fisica
-  //await usuario.destroy();
-  await usuario.update({ estado: false });
-
-  res.json(usuario);
-
-  // res.json({
-  //     msg: "deleteUsuario",
-  //     id
-  // });
 };

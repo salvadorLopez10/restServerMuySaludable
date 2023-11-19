@@ -51,7 +51,7 @@ export const postUsuario = async (req: Request, res: Response) => {
             });
         }
 
-        const usuario = new Usuario(body);
+        const usuario = new Usuario();
         await usuario.save();
 
         res.json( usuario );

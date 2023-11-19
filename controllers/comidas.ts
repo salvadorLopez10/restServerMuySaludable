@@ -34,7 +34,7 @@ export const postComida = async (req: Request, res: Response) => {
 
   try {
 
-    const comida = new Comida(body);
+    const comida = new Comida();
     await comida.save();
 
     res.json(comida);

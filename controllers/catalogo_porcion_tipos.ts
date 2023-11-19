@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import Catalogo from "../models/catalogo_tipo_porcion";
+import Catalogo from "../models/catalogo_porcion_tipo";
 
 export const getElementosCatalogo = async (req: Request, res: Response) => {
   const elementos = await Catalogo.findAll();

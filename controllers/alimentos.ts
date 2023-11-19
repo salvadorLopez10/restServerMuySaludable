@@ -45,7 +45,7 @@ export const postAlimento = async (req: Request, res: Response) => {
       });
     }
 
-    const alimento = new Alimento(body);
+    const alimento = new Alimento();
     await alimento.save();
 
     res.json(alimento);
