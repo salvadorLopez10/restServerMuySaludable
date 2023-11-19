@@ -45,8 +45,14 @@ export const postAlimento = async (req: Request, res: Response) => {
       });
     }
 
-    const alimento = new Alimento();
-    await alimento.save();
+    const alimento = await Alimento.create({
+      nombre: body.nombre,
+      tipo: body.tipo,
+      informacion_nutrimental: ""
+    });
+
+    // const alimento = new Alimento();
+    // await alimento.save();
 
     res.json(alimento);
   } catch (error) {
