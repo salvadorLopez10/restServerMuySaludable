@@ -79,8 +79,10 @@ export const crearComidaConAlimentos = async (
           cantidad: alimento.cantidad,
           id_catalogo_porcion_tipos: alimento.id_catalogo_porcion_tipos,
         };
-        const relacion = new AlimentosComidas();
-        await relacion.save();
+
+
+        const relacion = await AlimentosComidas.create(bodyRelacion);
+        //await relacion.save();
       })
     );
 
