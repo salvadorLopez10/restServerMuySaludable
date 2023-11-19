@@ -62,7 +62,7 @@ export const crearComidaConAlimentos = async (
     });
 
     // Obtiene el id de la comida recién creada
-    const {comidaId} = nuevaComida.getDataValue('id');
+    const comidaId = nuevaComida.getDataValue('id');
 
     interface AlimentoTipo {
       id_alimento: number;
