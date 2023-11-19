@@ -1,7 +1,7 @@
 import { DataTypes } from "sequelize";
 import db from "../db/connection";
 
-const Catalogo_Porcion_Tipos = db.define("Catalogo_Porcion_Tipos", {
+const Catalogo_Porcion_Tipos = db.define("catalogo_porcion_tipos", {
   nombre: {
     type: DataTypes.STRING,
   },

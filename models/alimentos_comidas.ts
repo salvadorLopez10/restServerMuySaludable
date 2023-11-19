@@ -1,7 +1,7 @@
 import { DataTypes } from "sequelize";
 import db from "../db/connection";
 
-const Alimentos_Comida = db.define("Alimentos_Comida", {
+const Alimentos_Comida = db.define("alimentos_comida", {
   id_comida: {
     type: DataTypes.INTEGER,
   },
