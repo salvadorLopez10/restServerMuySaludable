@@ -4,6 +4,7 @@ import alimentoRoutes from "../routes/alimento";
 import catalogoPorcionTiposRoutes from "../routes/catalogo_porcion_tipo";
 import comidasRoutes from "../routes/comida";
 import alimentosComidasRoutes from "../routes/alimentos_comida";
+import planesRoutes from "../routes/planes_alimenticio";
 import cors from "cors";
 import db from '../db/connection';
 
@@ -16,6 +17,7 @@ class Server {
     catalogoPorcionTipos: "/api/catalogoPorcionTipos",
     comidas: "/api/comidas",
     alimentosComida: "/api/alimentosComida",
+    planesAlimenticios: "/api/planesAlimenticios"
   };
 
   constructor() {
@@ -59,6 +61,7 @@ class Server {
     this.app.use(this.apiPaths.catalogoPorcionTipos,catalogoPorcionTiposRoutes);
     this.app.use(this.apiPaths.comidas, comidasRoutes);
     this.app.use(this.apiPaths.alimentosComida, alimentosComidasRoutes);
+    this.app.use(this.apiPaths.planesAlimenticios, planesRoutes);
 
   }
 
