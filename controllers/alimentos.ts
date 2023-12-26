@@ -45,6 +45,9 @@ export const postAlimento = async (req: Request, res: Response) => {
       });
     }
 
+    console.log("BODY ALIMENTO");
+    console.log( body );
+
     const alimento = await Alimento.create({
       nombre: body.nombre,
       tipo: body.tipo,
