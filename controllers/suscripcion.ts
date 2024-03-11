@@ -33,6 +33,7 @@ export const postSuscripcion = async (req: Request, res: Response) => {
     const suscripcion = await Suscripcion.create({
       id_usuario : body.id_usuario,
       id_plan_alimenticio: body.id_plan_alimenticio,
+      id_pago: body.id_pago,
       fecha_expiracion: body.fecha_expiracion,
       estado: body.estado
     });
@@ -45,7 +46,8 @@ export const postSuscripcion = async (req: Request, res: Response) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({
-      msg: "Error: Contacte al administrador",
+        status: "Error",
+        msg: "Error: Contacte al administrador",
     });
   }
 };

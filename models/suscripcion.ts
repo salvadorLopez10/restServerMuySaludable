@@ -8,6 +8,9 @@ const Suscripcion = db.define("suscripciones", {
   id_plan_alimenticio: {
     type: DataTypes.INTEGER,
   },
+  id_pago:{
+    type: DataTypes.STRING,
+  },
   fecha_expiracion: {
     type: DataTypes.DATE,
   },
