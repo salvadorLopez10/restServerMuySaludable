@@ -5,10 +5,7 @@ import Usuario from '../models/usuario';
 export const getUsuarios = async ( req: Request, res: Response ) => {
 
     const usuarios = await Usuario.findAll();
-
-    // res.json({
-    //     msg: 'getUsuarios'
-    // })
+    
     res.json({usuarios});
 
 }
@@ -26,11 +23,6 @@ export const getUsuario = async (req: Request, res: Response) => {
             msg: `No exite un usuario con el id ${id}`
         });
     }
-
-    // res.json({
-    //     msg: "getUsuario",
-    //     id
-    // });
 };
 
 export const postUsuario = async (req: Request, res: Response) => {
@@ -46,19 +38,28 @@ export const postUsuario = async (req: Request, res: Response) => {
         }); 
 
         if ( existeEmail ){
-            return res.status(400).json({
-                msg: "Ya existe un usuario con el email "+ body.email
+            return res.status(200).json({
+                status:"Duplicate",
+                msg: "Ya existe un usuario con el email "+ body.email,
+                data: "",
             });
         }
 
-        const usuario = new Usuario();
-        await usuario.save();
+        const usuario = await Usuario.create({
+            email: body.email,
+            password: body.password
+        });
 
-        res.json( usuario );
+        res.status(200).json({
+            status: `Ok`,
+            msg: "El usuario se ha creado correctamente",
+            data: usuario
+        });
         
     } catch (error) {
         console.log(error);
         res.status(500).json({
+            status: `Error`,
             msg: "Error: Contacte al administrador"
         });
         
@@ -81,9 +82,25 @@ export const putUsuario = async (req: Request, res: Response) => {
         });
        }
 
-       await usuario.update( body );
 
-       res.json( usuario );
+       await usuario.update( {
+        nombre: body.nombre,
+        edad: body.edad,
+        altura: body.altura,
+        peso: body.peso,
+        sexo: body.sexo,
+        actividad_fisica: body.actividad_fisica,
+        tipo_dieta: body.tipo_dieta,
+        alimentos_evitar: body.alimentos_evitar,
+        objetivo: body.objetivo,
+        estado_mexico: body.estado_mexico,
+       } );
+
+       res.status(200).json({
+            status: `Ok`,
+            msg: "El usuario se ha actualizado correctamente",
+            data: usuario
+        });
        
     } catch (error) {
         console.log(error);
