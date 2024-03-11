@@ -11,7 +11,7 @@ const Planes_Alimenticios = db.define("planes_alimenticios", {
   descripcion_detallada: {
     type: DataTypes.STRING,
   },
-  duracion: {
+  duracion_meses: {
     type: DataTypes.STRING,
   },
   precio: {
