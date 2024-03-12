@@ -5,7 +5,7 @@ import Usuario from '../models/usuario';
 export const getUsuarios = async ( req: Request, res: Response ) => {
 
     const usuarios = await Usuario.findAll();
-    
+
     res.json({usuarios});
 
 }
@@ -47,7 +47,7 @@ export const postUsuario = async (req: Request, res: Response) => {
 
         const usuario = await Usuario.create({
             email: body.email,
-            password: body.password
+            //password: body.password
         });
 
         res.status(200).json({
@@ -85,6 +85,8 @@ export const putUsuario = async (req: Request, res: Response) => {
 
        await usuario.update( {
         nombre: body.nombre,
+        email: body.email,
+        password: body.password,
         edad: body.edad,
         altura: body.altura,
         peso: body.peso,
@@ -132,4 +134,43 @@ export const deleteUsuario = async (req: Request, res: Response) => {
     //     msg: "deleteUsuario",
     //     id
     // });
+};
+
+export const emailExists = async (req: Request, res: Response) => {
+  const { body } = req;
+
+    try {
+
+        const existeEmail = await Usuario.findOne({
+            where: {
+                email: body.email
+            }
+        }); 
+
+        if ( existeEmail ){
+            
+            return res.status(200).json({
+                status:"Duplicate",
+                msg: "Ya existe un usuario con el email "+ body.email,
+                data: existeEmail,
+            });
+
+        }else{
+
+            return res.status(200).json({
+                status:"Ok",
+                msg: "Email no existente",
+                data: "",
+            });
+        }
+
+        
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            status: `Error`,
+            msg: "Error: Contacte al administrador"
+        });
+        
+    }
 };
