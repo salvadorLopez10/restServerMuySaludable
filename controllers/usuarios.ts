@@ -171,6 +171,46 @@ export const emailExists = async (req: Request, res: Response) => {
             status: `Error`,
             msg: "Error: Contacte al administrador"
         });
+
+    }
+};
+
+export const login = async (req: Request, res: Response) => {
+  const { body } = req;
+
+    try {
+
+        const existeUsuario = await Usuario.findOne({
+            where: {
+                email: body.email,
+                password: body.password
+            }
+        }); 
+
+        if ( existeUsuario ){
+            
+            return res.status(200).json({
+                status:"Ok",
+                msg: "Login correcto",
+                data: existeUsuario,
+            });
+
+        }else{
+
+            return res.status(200).json({
+                status:"Error",
+                msg: "Credenciales incorrectas",
+                data: "",
+            });
+        }
+
+        
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            status: `Error`,
+            msg: "Error: Contacte al administrador"
+        });
         
     }
 };
