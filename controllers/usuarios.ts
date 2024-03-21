@@ -199,7 +199,7 @@ export const login = async (req: Request, res: Response) => {
 
             return res.status(200).json({
                 status:"Error",
-                msg: "Credenciales incorrectas",
+                msg: "Correo y/o contraseña incorrecto(s)",
                 data: "",
             });
         }
