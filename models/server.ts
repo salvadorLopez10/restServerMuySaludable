@@ -7,6 +7,7 @@ import alimentosComidasRoutes from "../routes/alimentos_comida";
 import planesRoutes from "../routes/planes_alimenticio";
 import suscripcionesRoutes from "../routes/suscripcion";
 import stripeRoutes from "../routes/stripe";
+import codigosRoutes from "../routes/codigos_descuento";
 import cors from "cors";
 import db from '../db/connection';
 
@@ -21,7 +22,8 @@ class Server {
     alimentosComida: "/api/alimentosComida",
     planesAlimenticios: "/api/planesAlimenticios",
     suscripciones: "/api/suscripciones",
-    stripe: "/api/stripe/create"
+    stripe: "/api/stripe/create",
+    codigosDescuento: "/api/codigosDescuento"
   };
 
   constructor() {
@@ -68,6 +70,7 @@ class Server {
     this.app.use(this.apiPaths.planesAlimenticios, planesRoutes);
     this.app.use(this.apiPaths.suscripciones, suscripcionesRoutes);
     this.app.use(this.apiPaths.stripe, stripeRoutes);
+    this.app.use(this.apiPaths.codigosDescuento, codigosRoutes);
 
   }
 
