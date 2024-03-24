@@ -11,7 +11,7 @@ export const getCodigos = async (req: Request, res: Response) => {
     });
 };
 
-export const getCodigo = async (req: Request, res: Response) => {
+export const getCodigoById = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   const codigo = await Codigo.findByPk(id);
@@ -27,6 +27,34 @@ export const getCodigo = async (req: Request, res: Response) => {
     res.status(404).json({
         status: `No encontrado`,
         msg: `No exite el código de descuento con el id ${id}`,
+        data: ''
+    });
+  }
+};
+
+export const getCodigoByName = async (req: Request, res: Response) => {
+  const { nombre } = req.params;
+
+  const codigo = await Codigo.findOne({
+    where: {
+        nombre: nombre,
+        activo: 1
+    }
+  });
+
+  console.log(JSON.stringify(codigo,null,2))
+
+  if (codigo) {
+    res.status(200).json({
+        status: `Ok`,
+        msg: "El código de descuento se ha obtenido correctamente",
+        data: codigo
+    });
+
+  } else {
+    res.status(404).json({
+        status: `No encontrado`,
+        msg: `No existe el código de descuento con el nombre ${nombre} o se encuentra inactivo`,
         data: ''
     });
   }
