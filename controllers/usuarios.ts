@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import Usuario from '../models/usuario';
+import { QueryTypes, Sequelize } from "sequelize";
+import db from "../db/connection";
 
 
 export const getUsuarios = async ( req: Request, res: Response ) => {
@@ -189,10 +191,12 @@ export const login = async (req: Request, res: Response) => {
 
         if ( existeUsuario ){
             
+            const infoComplete = await getInfoUserWithPlan(existeUsuario.get('id'))
+
             return res.status(200).json({
                 status:"Ok",
                 msg: "Login correcto",
-                data: existeUsuario,
+                data: infoComplete,
             });
 
         }else{
@@ -214,3 +218,30 @@ export const login = async (req: Request, res: Response) => {
         
     }
 };
+
+const getInfoUserWithPlan = async(userId:unknown) => {
+    try {
+    // Ejecutar el query utilizando Sequelize
+    console.log("user id pasado por parámetro");
+    console.log(userId);
+    const queryResult = await db.query(
+      `SELECT u.*, s.id_plan_alimenticio, p.nombre nombre_plan
+       FROM usuarios u
+       INNER JOIN suscripciones s ON u.id = s.id_usuario
+       INNER JOIN planes_alimenticios p ON s.id_plan_alimenticio = p.id
+       WHERE s.id_usuario = :userId`,
+      {
+        replacements: { userId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    console.log(JSON.stringify(queryResult))
+
+    return queryResult;
+    
+  } catch (error) {
+    console.error('Error al ejecutar el query:', error);
+    
+  }
+}
