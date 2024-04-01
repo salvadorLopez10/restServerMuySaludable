@@ -196,7 +196,7 @@ export const login = async (req: Request, res: Response) => {
             return res.status(200).json({
                 status:"Ok",
                 msg: "Login correcto",
-                data: infoComplete,
+                data: (infoComplete) ? infoComplete[0]: "",
             });
 
         }else{
@@ -239,7 +239,7 @@ const getInfoUserWithPlan = async(userId:unknown) => {
     console.log(JSON.stringify(queryResult))
 
     return queryResult;
-    
+
   } catch (error) {
     console.error('Error al ejecutar el query:', error);
     
