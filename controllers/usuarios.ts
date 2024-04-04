@@ -22,7 +22,7 @@ export const getUsuario = async (req: Request, res: Response) => {
         res.json({ usuario });
     }else{
         res.status(404).json({
-            msg: `No exite un usuario con el id ${id}`
+            msg: `No existe un usuario con el id ${id}`
         });
     }
 };
@@ -219,6 +219,50 @@ export const login = async (req: Request, res: Response) => {
     }
 };
 
+export const calculateTMB = async (req: Request, res: Response) => {
+
+    const { id } = req.params;
+    
+    try {
+        const usuario = await Usuario.findByPk(id);
+        if(usuario){
+
+            const edad = usuario.get('edad');
+            const altura = usuario.get('altura');
+            const sexo = usuario.get('sexo');
+            const peso = usuario.get('peso');
+            const nivel_actividad = usuario.get('actividad_fisica');
+            
+            const tasa_metabolica_basal = getTMB( edad, peso, sexo, altura );
+
+            const tasa_metabolica_basal_actividad = getTMBbyActividad( tasa_metabolica_basal, nivel_actividad );
+
+            return res.status(200).json({
+                status:"Ok",
+                msg: "Tasa metabólica basal calculada correctamente",
+                data: number_format(tasa_metabolica_basal_actividad),
+            });
+
+        }else{
+            return res.status(200).json({
+                status:"Not Found",
+                msg: `No existe un usuario con el id ${id}`,
+                data: "",
+            });
+        }
+
+        
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            status: `Error`,
+            msg: "Error: Contacte al administrador",
+            data: error
+        });
+        
+    }
+};
+
 const getInfoUserWithPlan = async(userId:unknown) => {
     try {
     // Ejecutar el query utilizando Sequelize
@@ -244,4 +288,62 @@ const getInfoUserWithPlan = async(userId:unknown) => {
     console.error('Error al ejecutar el query:', error);
     
   }
+}
+
+const getTMB = ( edad: string | unknown, peso: string | unknown, sexo: string | unknown, altura: string | unknown ) => {
+    var tmb = null;
+
+    /*
+        ---Hombres
+        TMB = (10 x peso en kg) + (6,25 × altura en cm) - (5 × edad en años) + 5
+        ---Mujeres
+        TMB = (10 x peso en kg) + (6,25 × altura en cm) - (5 × edad en años) - 161
+    */
+
+    if( sexo == "Hombre" ){
+        tmb= ( 10 * Number(peso) ) + ( 6.25 * Number(altura) )- (5 * Number(edad) )+ 5; 
+    }else{
+        tmb = ( 10 * Number(peso) ) + (6.25 * Number(altura)) - ( 5 * Number(edad)) - 161;
+    }
+
+    return tmb;
+
+}
+
+const getTMBbyActividad = ( tmb: number, actividad: string | unknown ) => {
+
+    var tmba = null;
+
+    switch (actividad) {
+        case "poco_ninguno":
+            tmba = tmb * 1.2;
+            break;
+        
+        case "ligero":
+            tmba = tmb * 1.375;
+            break;
+
+        case "moderado":
+            tmba = tmb * 1.55;
+            break;
+        
+        case "fuerte":
+            tmba = tmb * 1.725;
+            break;
+        
+        case "muy_fuerte":
+            tmba = tmb * 1.9;
+            break;
+    
+        default:
+            tmba = 0;
+            break;
+    }
+
+    return tmba;
+}
+
+function number_format(n : number) {
+    
+    return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1");
 }
