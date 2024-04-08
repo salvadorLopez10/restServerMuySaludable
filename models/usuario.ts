@@ -40,6 +40,9 @@ const Usuario = db.define('usuario',{
     estado_mexico: {
         type: DataTypes.STRING
     },
+    tmb: {
+        type: DataTypes.STRING
+    },
     activo: {
         type: DataTypes.BOOLEAN
     },

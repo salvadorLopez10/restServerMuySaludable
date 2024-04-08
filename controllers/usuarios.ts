@@ -237,9 +237,13 @@ export const calculateTMB = async (req: Request, res: Response) => {
 
             const tasa_metabolica_basal_actividad = getTMBbyActividad( tasa_metabolica_basal, nivel_actividad );
 
+            await usuario.update({
+                tmb: tasa_metabolica_basal_actividad
+            });
+
             return res.status(200).json({
                 status:"Ok",
-                msg: "Tasa metabólica basal calculada correctamente",
+                msg: "Tasa metabólica basal calculada correctamente para el usuario "+ id,
                 data: number_format(tasa_metabolica_basal_actividad),
             });
 
