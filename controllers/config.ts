@@ -33,7 +33,7 @@ export const getKeyStripeClient = async (req: Request, res: Response) => {
         console.log(error);
         res.status(500).json({
             status: `Error`,
-            msg: "Error: " + JSON.stringify(error,null,2);
+            msg: "Error: " + JSON.stringify(error,null,2)
         });
 
     }
