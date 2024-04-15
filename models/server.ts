@@ -9,6 +9,7 @@ import suscripcionesRoutes from "../routes/suscripcion";
 import stripeRoutes from "../routes/stripe";
 import codigosRoutes from "../routes/codigos_descuento";
 import configsRoutes from "../routes/config";
+import saludRoutes from "../routes/salud_financiera_mental";
 import cors from "cors";
 import db from '../db/connection';
 
@@ -25,7 +26,8 @@ class Server {
     suscripciones: "/api/suscripciones",
     stripe: "/api/stripe/create",
     codigosDescuento: "/api/codigosDescuento",
-    config: "/api/config"
+    config: "/api/config",
+    salud: "/api/salud"
   };
 
   constructor() {
@@ -74,6 +76,7 @@ class Server {
     this.app.use(this.apiPaths.stripe, stripeRoutes);
     this.app.use(this.apiPaths.codigosDescuento, codigosRoutes);
     this.app.use(this.apiPaths.config, configsRoutes);
+    this.app.use(this.apiPaths.salud, saludRoutes);
 
   }
 
