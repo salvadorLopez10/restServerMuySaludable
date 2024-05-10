@@ -98,6 +98,7 @@ export const putUsuario = async (req: Request, res: Response) => {
         alimentos_evitar: body.alimentos_evitar,
         objetivo: body.objetivo,
         estado_mexico: body.estado_mexico,
+        notification_token: body.notification_token,
        } );
 
        res.status(200).json({
@@ -350,4 +351,68 @@ const getTMBbyActividad = ( tmb: number, actividad: string | unknown ) => {
 function number_format(n : number) {
     
     return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1");
+}
+
+export const generateMealPlan = (req: Request, res: Response) => {
+
+    const { body } = req;
+
+    const duracion = body.duracion;
+    const tipo_dieta = body.tipo_dieta;
+    const alimentos_evitar = body.alimentos_evitar;
+    const objetivo = body.objetivo;
+    const tmb = body.tmb;
+
+    const json_response = {
+    "Detox": {
+      "Desayuno": {
+        "Opcion 1": "Huevos al gusto",
+        "Opcion 2": "Sincronizadas",
+        "Opcion 3": "Enchiladas",
+      },
+      "Colación 1": {
+        "Opcion 1": "Opcion 1",
+        "Opcion 2": "Opcion 2",
+      },
+      "Colación 2": {
+        "Opcion 1": "Opcion 1",
+        "Opcion 2": "Opcion 2",
+      },
+    },
+    "Mes 1": {
+      "Desayuno": {
+        "Opcion 1": "Opcion 1",
+        "Opcion 2": "Opcion 2",
+      },
+      "Colación 1": {
+        "Opcion 1": "Opcion 1",
+        "Opcion 2": "Opcion 2",
+      },
+      "Colación 2": {
+        "Opcion 1": "Opcion 1",
+        "Opcion 2": "Opcion 2",
+      },
+    },
+    "Mes 2": {
+      "Desayuno": {
+        "Opcion 1": "Opcion 1",
+        "Opcion 2": "Opcion 2",
+      },
+      "Colación 1": {
+        "Opcion 1": "Opcion 1",
+        "Opcion 2": "Opcion 2",
+      },
+      "Colación 2": {
+        "Opcion 1": "Opcion 1",
+        "Opcion 2": "Opcion 2",
+      },
+    },
+  };
+
+    return res.status(200).json({
+                status:"Ok",
+                msg: "Plan generado ",
+                data: json_response
+            });
+
 }

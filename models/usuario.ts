@@ -46,6 +46,9 @@ const Usuario = db.define('usuario',{
     activo: {
         type: DataTypes.BOOLEAN
     },
+    notification_token: {
+        type: DataTypes.STRING
+    }
 });
 
 export default Usuario;
