@@ -17,6 +17,10 @@ const Planes_Alimenticios = db.define("planes_alimenticios", {
   precio: {
     type: DataTypes.DECIMAL,
   },
+  precio_regular: {
+    type: DataTypes.DECIMAL,
+  },
+  
 
 });
 
