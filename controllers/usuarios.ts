@@ -99,6 +99,7 @@ export const putUsuario = async (req: Request, res: Response) => {
         objetivo: body.objetivo,
         estado_mexico: body.estado_mexico,
         notification_token: body.notification_token,
+        deleted: body.deleted
        } );
 
        res.status(200).json({
@@ -192,6 +193,15 @@ export const login = async (req: Request, res: Response) => {
 
         if ( existeUsuario ){
             
+            if( existeUsuario.get('deleted') ){
+                return res.status(200).json({
+                    status:"Error",
+                    msg: "Login incorrecto, el usuario ha eliminado su cuenta",
+                    data: existeUsuario,
+                });
+                
+            }
+
             const infoComplete = await getInfoUserWithPlan(existeUsuario.get('id'))
 
             return res.status(200).json({
@@ -274,7 +284,7 @@ const getInfoUserWithPlan = async(userId:unknown) => {
     console.log("user id pasado por parámetro");
     console.log(userId);
     const queryResult = await db.query(
-      `SELECT u.*, s.id_plan_alimenticio, p.nombre nombre_plan, p.duracion_meses
+      `SELECT u.*, s.id_plan_alimenticio, p.nombre nombre_plan, p.duracion_meses, s.fecha_expiracion
        FROM usuarios u
        INNER JOIN suscripciones s ON u.id = s.id_usuario
        INNER JOIN planes_alimenticios p ON s.id_plan_alimenticio = p.id

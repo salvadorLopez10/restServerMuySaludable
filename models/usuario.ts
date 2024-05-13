@@ -43,7 +43,7 @@ const Usuario = db.define('usuario',{
     tmb: {
         type: DataTypes.STRING
     },
-    activo: {
+    deleted: {
         type: DataTypes.BOOLEAN
     },
     notification_token: {
