@@ -284,7 +284,7 @@ const getInfoUserWithPlan = async(userId:unknown) => {
     console.log("user id pasado por parámetro");
     console.log(userId);
     const queryResult = await db.query(
-       `SELECT u.*, s.id_plan_alimenticio,s.estado estado_plan, p.nombre nombre_plan, p.duracion_meses, s.fecha_expiracion
+       `SELECT u.*,s.id id_suscripcion, s.id_plan_alimenticio,s.estado estado_plan, p.nombre nombre_plan, p.duracion_meses, s.fecha_expiracion
        FROM usuarios u
        INNER JOIN suscripciones s ON u.id = s.id_usuario
        INNER JOIN planes_alimenticios p ON s.id_plan_alimenticio = p.id
