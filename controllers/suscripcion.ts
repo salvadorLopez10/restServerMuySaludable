@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import Suscripcion from "../models/suscripcion";
+import Suscripcion from '../models/suscripcion';
 
 export const getSuscripciones = async (req: Request, res: Response) => {
   const suscripciones = await Suscripcion.findAll();
@@ -52,3 +52,35 @@ export const postSuscripcion = async (req: Request, res: Response) => {
   }
 };
 
+export const updateSuscripcion = async (req: Request, res: Response) => {
+  
+    const { id } = req.params;
+    const { body } = req;
+
+    try {
+
+       const suscripcion = await Suscripcion.findByPk( id );
+       if( !suscripcion ){
+        return res.status(404).json({
+            msg: 'No existe suscripción con el id ' + id 
+        });
+       }
+
+       await suscripcion.update( {
+        estado:body.estado
+       } );
+
+       res.status(200).json({
+            status: `Ok`,
+            msg: "La suscripción se ha actualizado correctamente",
+            data: suscripcion
+        });
+       
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            msg: "Error: Contacte al administrador"
+        });
+        
+    }
+};
