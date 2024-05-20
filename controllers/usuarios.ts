@@ -289,7 +289,8 @@ const getInfoUserWithPlan = async(userId:unknown) => {
        INNER JOIN suscripciones s ON u.id = s.id_usuario
        INNER JOIN planes_alimenticios p ON s.id_plan_alimenticio = p.id
        WHERE s.estado = 'Activo'
-       AND s.id_usuario = :userId`,
+       AND s.id_usuario = :userId
+       ORDER BY s.fecha_compra DESC`,
       {
         replacements: { userId },
         type: QueryTypes.SELECT,
