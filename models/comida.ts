@@ -7,6 +7,18 @@ const Comida = db.define("comida", {
   },
   tipo: {
     type: DataTypes.STRING,
+  },
+  categoria: {
+    type: DataTypes.STRING,
+  },
+  calorias: {
+    type: DataTypes.STRING,
+  },
+  descripcion: {
+    type: DataTypes.STRING,
+  },
+  detox: {
+    type: DataTypes.TINYINT,
   }
 });
 

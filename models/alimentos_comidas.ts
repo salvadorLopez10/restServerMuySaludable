@@ -11,6 +11,12 @@ const Alimentos_Comida = db.define("alimentos_comida", {
   cantidad: {
     type: DataTypes.INTEGER,
   },
+  tipo_porcion: {
+    type: DataTypes.STRING,
+  },
+  descripcion: {
+    type: DataTypes.STRING,
+  },
   id_catalogo_porcion_tipos: {
     type: DataTypes.INTEGER,
   },
