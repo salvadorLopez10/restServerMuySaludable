@@ -2,11 +2,11 @@ import { Request, Response } from "express";
 import Alimento from "../models/alimento";
 
 export const getAlimentos = async (req: Request, res: Response) => {
-  const alimentos = await Alimento.findAll();
-
-  // res.json({
-  //     msg: 'getUsuarios'
-  // })
+  const alimentos = await Alimento.findAll({
+      order: [
+        ['nombre', 'ASC'] // Ordenar alfabéticamente por nombre en orden ascendente
+      ]
+    });
   res.json({ alimentos });
 };
 
