@@ -3,6 +3,38 @@ import Usuario from '../models/usuario';
 import { QueryTypes, Sequelize } from "sequelize";
 import db from "../db/connection";
 
+interface Meal {
+    idComida: number;
+    nombreComida: string;
+    tipo: string;
+    categoria: string;
+    idIngrediente: number;
+    nombreIngrediente: string;
+    porcionBase: string;
+    tipoPorcion: string;
+    caloriasBase: string;
+}
+
+interface Ingredient {
+    nombre: string;
+    porcionBase: string;
+    tipoPorcion: string;
+    caloriasPorcionBase: string;
+}
+
+interface MealGroup {
+    nombre: string;
+    idComida: number;
+    ingredientes: Ingredient[];
+}
+
+interface MealPlan {
+    Desayunos: MealGroup[];
+    Colaciones: MealGroup[];
+    Comidas: MealGroup[];
+    Cenas: MealGroup[];
+}
+
 
 export const getUsuarios = async ( req: Request, res: Response ) => {
 
@@ -14,7 +46,7 @@ export const getUsuarios = async ( req: Request, res: Response ) => {
 
 export const getUsuario = async (req: Request, res: Response) => {
 
-    const { id } = req.params;
+   const { id } = req.params; 
 
     const usuario = await Usuario.findByPk(id);
 
@@ -365,7 +397,7 @@ function number_format(n : number) {
     return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1");
 }
 
-export const generateMealPlan = (req: Request, res: Response) => {
+export const generateMealPlan = async(req: Request, res: Response) => {
 
     const { body } = req;
 
@@ -375,56 +407,143 @@ export const generateMealPlan = (req: Request, res: Response) => {
     const objetivo = body.objetivo;
     const tmb = body.tmb;
 
-    const json_response = {
-    "Detox": {
-      "Desayuno": {
-        "Opcion 1": "Huevos al gusto",
-        "Opcion 2": "Sincronizadas",
-        "Opcion 3": "Enchiladas",
-      },
-      "Colación 1": {
-        "Opcion 1": "Opcion 1",
-        "Opcion 2": "Opcion 2",
-      },
-      "Colación 2": {
-        "Opcion 1": "Opcion 1",
-        "Opcion 2": "Opcion 2",
-      },
-    },
-    "Mes 1": {
-      "Desayuno": {
-        "Opcion 1": "Opcion 1",
-        "Opcion 2": "Opcion 2",
-      },
-      "Colación 1": {
-        "Opcion 1": "Opcion 1",
-        "Opcion 2": "Opcion 2",
-      },
-      "Colación 2": {
-        "Opcion 1": "Opcion 1",
-        "Opcion 2": "Opcion 2",
-      },
-    },
-    "Mes 2": {
-      "Desayuno": {
-        "Opcion 1": "Opcion 1",
-        "Opcion 2": "Opcion 2",
-      },
-      "Colación 1": {
-        "Opcion 1": "Opcion 1",
-        "Opcion 2": "Opcion 2",
-      },
-      "Colación 2": {
-        "Opcion 1": "Opcion 1",
-        "Opcion 2": "Opcion 2",
-      },
-    },
-  };
+    try {
+    // Ejecutar el query utilizando Sequelize
+    const queryComidas: Meal[] = await db.query<Meal>(
+       `
+       SELECT 
+            c.id idComida,
+            c.nombre nombreComida,
+            c.tipo,
+            c.categoria,
+            a.id idIngrediente,
+            a.nombre nombreIngrediente,
+            a.porcion porcionBase,
+            a.tipo_porcion tipoPorcion,
+            a.calorias caloriasBase
+        FROM
+            comidas c
+            INNER JOIN alimentos_comidas ac ON ac.id_comida = c.id
+            INNER JOIN alimentos a ON ac.id_alimento = a.id
+        WHERE
+            c.categoria = :tipo_dieta  
+       `,
+      {
+        replacements: { tipo_dieta },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    //console.log(JSON.stringify(queryComidas,null,1))
+    console.log(queryComidas[0],queryComidas[1],queryComidas.length);
+
+    const arrayComidasFormat  = formatMeals(queryComidas);
+    //return queryResult;
 
     return res.status(200).json({
                 status:"Ok",
                 msg: "Plan generado ",
-                data: json_response
+                data: arrayComidasFormat
             });
 
+  } catch (error) {
+    console.error('Error al ejecutar el query:', error);
+    
+  }
+
+
+    // const json_response = {
+    // "Detox": {
+    //   "Desayuno": {
+    //     "Opcion 1": "Huevos al gusto",
+    //     "Opcion 2": "Sincronizadas",
+    //     "Opcion 3": "Enchiladas",
+    //   },
+    //   "Colación 1": {
+    //     "Opcion 1": "Opcion 1",
+    //     "Opcion 2": "Opcion 2",
+    //   },
+    //   "Colación 2": {
+    //     "Opcion 1": "Opcion 1",
+    //     "Opcion 2": "Opcion 2",
+    //   },
+    // },
+    // "Mes 1": {
+    //   "Desayuno": {
+    //     "Opcion 1": "Opcion 1",
+    //     "Opcion 2": "Opcion 2",
+    //   },
+    //   "Colación 1": {
+    //     "Opcion 1": "Opcion 1",
+    //     "Opcion 2": "Opcion 2",
+    //   },
+    //   "Colación 2": {
+    //     "Opcion 1": "Opcion 1",
+    //     "Opcion 2": "Opcion 2",
+    //   },
+    // },
+    // "Mes 2": {
+    //   "Desayuno": {
+    //     "Opcion 1": "Opcion 1",
+    //     "Opcion 2": "Opcion 2",
+    //   },
+    //   "Colación 1": {
+    //     "Opcion 1": "Opcion 1",
+    //     "Opcion 2": "Opcion 2",
+    //   },
+    //   "Colación 2": {
+    //     "Opcion 1": "Opcion 1",
+    //     "Opcion 2": "Opcion 2",
+    //   },
+    // },
+    // };
+
 }
+
+function formatMeals(meals: Meal[]): MealPlan {
+
+    const mealPlan: MealPlan = {
+        Desayunos: [],
+        Colaciones: [],
+        Comidas: [],
+        Cenas: [],
+    };
+
+    const mealTypes: { [key: string]: keyof MealPlan } = {
+        Desayuno: 'Desayunos',
+        Colacion: 'Colaciones',
+        Comida: 'Comidas',
+        Cena: 'Cenas'
+    };
+
+    const groupedMeals: { [key: number]: MealGroup } = meals.reduce((acc: { [key: number]: MealGroup }, meal: Meal) => {
+        if (!acc[meal.idComida]) {
+            acc[meal.idComida] = {
+                nombre: meal.nombreComida,
+                idComida: meal.idComida,
+                ingredientes: []
+            };
+        }
+        acc[meal.idComida].ingredientes.push({
+            nombre: meal.nombreIngrediente,
+            porcionBase: meal.porcionBase,
+            tipoPorcion: meal.tipoPorcion,
+            caloriasPorcionBase: meal.caloriasBase
+        });
+        return acc;
+    }, {});
+
+    for (const id in groupedMeals) {
+        if (groupedMeals.hasOwnProperty(id)) {
+            const meal = groupedMeals[id];
+            const mealType = meals.find(m => m.idComida === Number(id))?.tipo;
+            if (mealType) {
+                mealPlan[mealTypes[mealType]].push(meal);
+            }
+        }
+    }
+
+    return mealPlan;
+
+}
+
