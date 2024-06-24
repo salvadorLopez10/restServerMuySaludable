@@ -20,10 +20,12 @@ export interface Ingredient {
 }
 
 export interface MealGroup {
+    tipo: string;
+    ingredientes: Ingredient[];
     nombre: string;
     idComida: number;
-    ingredientes: Ingredient[];
-    caloriasTotales?: number;
+    caloriasTotalesAjustadas?: number;
+    caloriasTotales?: number | undefined;
 }
 
 export interface MealPlan {
@@ -31,4 +33,31 @@ export interface MealPlan {
     Colaciones: MealGroup[];
     Comidas: MealGroup[];
     Cenas: MealGroup[];
+}
+
+export type TipoComida = 'Desayuno' | 'Colacion1' | 'Comida' | 'Colacion2' | 'Cena';
+
+
+export interface JSONResponse {
+    Detox: {
+        [key in TipoComida]: {
+            [key: string]: {
+                nombre: string;
+                ingredientes: {
+                    nombre: string;
+                    porcion: string;
+                }[];
+            }
+        };
+    };
+    Mes1: {
+        [key in TipoComida]: {
+            [key: string]: {};
+        };
+    };
+    Mes2: {
+        [key in TipoComida]: {
+            [key: string]: {};
+        };
+    };
 }

@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import Usuario from '../models/usuario';
-import { QueryTypes, Sequelize } from "sequelize";
+import { QueryTypes, Sequelize, json } from "sequelize";
 import db from "../db/connection";
-import { Ingredient, Meal, MealGroup, MealPlan } from "./interfaces";
+import { Ingredient, JSONResponse, Meal, MealGroup, MealPlan, TipoComida } from "./interfaces";
 
 export const getUsuarios = async ( req: Request, res: Response ) => {
 
@@ -407,77 +407,21 @@ export const generateMealPlan = async(req: Request, res: Response) => {
 
         const arrayComidasFormat  = formatMeals(queryComidas);
 
-        const plan = generarPlanAlimenticio(objetivo,tmb, arrayComidasFormat);
+        const plan = generarPlanAlimenticio(objetivo,tmb, arrayComidasFormat, alimentos_evitar);
 
         //console.log(JSON.stringify(plan,null,1));
-
-        plan.forEach(comida => {
-            console.log(`${comida.tipo}`);
-            console.log(`Comida: ${comida.nombre}`);
-            console.log(`Calorías Totales Ajustadas: ${comida.caloriasTotalesAjustadas}`);
-            comida.ingredientes.forEach(ingrediente => {
-                console.log(`- ${ingrediente.nombre}: ${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas} Calorías)`);
-            });
-            console.log();
-        });
 
         return res.status(200).json({
                     status:"Ok",
                     msg: "Plan generado ",
-                    data: arrayComidasFormat
+                    //data: arrayComidasFormat
+                    data: plan
                 });
 
     } catch (error) {
         console.error('Error al ejecutar el query:', error);
         
     }
-
-
-    // const json_response = {
-    // "Detox": {
-    //   "Desayuno": {
-    //     "Opcion 1": "Huevos al gusto",
-    //     "Opcion 2": "Sincronizadas",
-    //     "Opcion 3": "Enchiladas",
-    //   },
-    //   "Colación 1": {
-    //     "Opcion 1": "Opcion 1",
-    //     "Opcion 2": "Opcion 2",
-    //   },
-    //   "Colación 2": {
-    //     "Opcion 1": "Opcion 1",
-    //     "Opcion 2": "Opcion 2",
-    //   },
-    // },
-    // "Mes 1": {
-    //   "Desayuno": {
-    //     "Opcion 1": "Opcion 1",
-    //     "Opcion 2": "Opcion 2",
-    //   },
-    //   "Colación 1": {
-    //     "Opcion 1": "Opcion 1",
-    //     "Opcion 2": "Opcion 2",
-    //   },
-    //   "Colación 2": {
-    //     "Opcion 1": "Opcion 1",
-    //     "Opcion 2": "Opcion 2",
-    //   },
-    // },
-    // "Mes 2": {
-    //   "Desayuno": {
-    //     "Opcion 1": "Opcion 1",
-    //     "Opcion 2": "Opcion 2",
-    //   },
-    //   "Colación 1": {
-    //     "Opcion 1": "Opcion 1",
-    //     "Opcion 2": "Opcion 2",
-    //   },
-    //   "Colación 2": {
-    //     "Opcion 1": "Opcion 1",
-    //     "Opcion 2": "Opcion 2",
-    //   },
-    // },
-    // };
 
 }
 
@@ -501,8 +445,9 @@ function formatMeals(meals: Meal[]): MealPlan {
         if (!acc[meal.idComida]) {
             acc[meal.idComida] = {
                 nombre: meal.nombreComida,
+                tipo: meal.tipo,
                 idComida: meal.idComida,
-                ingredientes: []
+                ingredientes: [],
             };
         }
         acc[meal.idComida].ingredientes.push({
@@ -542,43 +487,69 @@ function ajustarCaloriasPorObjetivo(tmb: number, objetivo: string): number {
 }
 
 function ajustarPorciones(ingredientes: Ingredient[], caloriasObjetivoPorComida: number): Ingredient[] {
-    const caloriasBaseTotal = ingredientes.reduce((acc, ingrediente) => acc + parseFloat(ingrediente.caloriasPorcionBase), 0);
+
+    const caloriasBaseTotal = ingredientes.reduce((total, ingrediente) => total + parseFloat(ingrediente.caloriasPorcionBase), 0);
+
     const factorAjuste = caloriasObjetivoPorComida / caloriasBaseTotal;
 
     return ingredientes.map(ingrediente => {
-        const porcionBase = parseFloat(ingrediente.porcionBase);
-        const caloriasPorcionBase = parseFloat(ingrediente.caloriasPorcionBase);
-        const porcionAjustada = porcionBase * factorAjuste;
-        const caloriasAjustadas = caloriasPorcionBase * factorAjuste;
+        const porcionAjustada = parseFloat(ingrediente.porcionBase) * factorAjuste;
+        const caloriasAjustadas = parseFloat(ingrediente.caloriasPorcionBase) * factorAjuste;
+
+        let porcionAjustadaRedondeada;
+        switch (ingrediente.tipoPorcion) {
+            case 'pieza':
+            case 'cucharada':
+            case 'hojas':
+                porcionAjustadaRedondeada = Math.round(porcionAjustada);
+                break;
+            case 'g':
+                porcionAjustadaRedondeada = Math.round(porcionAjustada / 5) * 5;
+                break;
+            case 'ml':
+                porcionAjustadaRedondeada = Math.round(porcionAjustada / 10) * 10;
+                break;
+            case 'taza':
+                porcionAjustadaRedondeada = Math.round(porcionAjustada * 10) / 10;
+                break;
+            default:
+                porcionAjustadaRedondeada = porcionAjustada; // No redondear si el tipo no está en la lista
+        }
 
         return {
             ...ingrediente,
-            porcionAjustada: Math.round(porcionAjustada),
-            caloriasAjustadas: Math.round(caloriasAjustadas)
+            porcionAjustada: porcionAjustadaRedondeada,
+            caloriasAjustadas
         };
     });
+
+
 }
 
 function calcularCaloriasTotalesAjustadas(ingredientes: Ingredient[]): number {
     return ingredientes.reduce((acc, ingrediente) => acc + (ingrediente.caloriasAjustadas ?? 0), 0);
 }
 
-function seleccionarComidasSinRepeticion(comidas: MealGroup[], cantidad: number): MealGroup[] {
-    const seleccionadas: MealGroup[] = [];
-    const indicesSeleccionados: Set<number> = new Set();
+function seleccionarComidasSinRepeticion(comidas: MealGroup[], cantidad: number, alimentosAEvitar: string[]): MealGroup[] {
 
-    while (seleccionadas.length < cantidad) {
-        const indiceAleatorio = Math.floor(Math.random() * comidas.length);
-        if (!indicesSeleccionados.has(indiceAleatorio)) {
-            indicesSeleccionados.add(indiceAleatorio);
-            seleccionadas.push(comidas[indiceAleatorio]);
-        }
+    const comidasFiltradas = alimentosAEvitar.length > 0
+        ? comidas.filter(comida =>
+            !comida.ingredientes.some(ingrediente => alimentosAEvitar.includes(ingrediente.nombre))
+        )
+        : comidas;
+
+    const comidasSeleccionadas: MealGroup[] = [];
+    const comidasDisponibles = [...comidasFiltradas];
+
+    while (comidasSeleccionadas.length < cantidad && comidasDisponibles.length > 0) {
+        const indiceAleatorio = Math.floor(Math.random() * comidasDisponibles.length);
+        comidasSeleccionadas.push(comidasDisponibles.splice(indiceAleatorio, 1)[0]);
     }
 
-    return seleccionadas;
+    return comidasSeleccionadas;
 }
 
-function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:MealPlan) {
+function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:MealPlan, alimentosEvitar: string[]) {
     
    const caloriasDiarias = ajustarCaloriasPorObjetivo(parseFloat(tmb), objetivo);
 
@@ -601,11 +572,11 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
     const caloriasColacion2 = caloriasDiarias * porcentajesCaloricos.colacion2;
     const caloriasCena = caloriasDiarias * porcentajesCaloricos.cena;
 
-    const desayunos = seleccionarComidasSinRepeticion(planAlimenticio.Desayunos, 1);
-    const colaciones_1 = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 1);
-    const comidas = seleccionarComidasSinRepeticion(planAlimenticio.Comidas, 1);
-    const colaciones_2 = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 1);
-    const cenas = seleccionarComidasSinRepeticion(planAlimenticio.Cenas, 1);
+    const desayunos = seleccionarComidasSinRepeticion(planAlimenticio.Desayunos, 5,alimentosEvitar);
+    const colaciones_1 = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 5,alimentosEvitar);
+    const comidas = seleccionarComidasSinRepeticion(planAlimenticio.Comidas, 5,alimentosEvitar);
+    const colaciones_2 = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 5,alimentosEvitar);
+    const cenas = seleccionarComidasSinRepeticion(planAlimenticio.Cenas, 5,alimentosEvitar);
 
     const comidasSeleccionadas = [
         { comidas: desayunos, caloriasObjetivo: caloriasDesayuno, tipo: "Desayuno" },
@@ -629,5 +600,80 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
         });
     }).flat();
 
-    return comidasAjustadas;
+     comidasAjustadas.forEach(comida => {
+            console.log(`${comida.tipo}`);
+            console.log(`Comida: ${comida.nombre}`);
+            console.log(`Calorías Totales Ajustadas: ${comida.caloriasTotalesAjustadas}`);
+            comida.ingredientes.forEach(ingrediente => {
+                console.log(`- ${ingrediente.nombre}: ${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas} Calorías)`);
+            });
+            console.log();
+        });
+
+    // Formatear la salida en un objeto JSON
+    const jsonResponse: JSONResponse = {
+        Detox: {
+            Desayuno: {},
+            Colacion1: {},
+            Comida: {},
+            Colacion2: {},
+            Cena: {}
+        },
+        Mes1: {
+            Desayuno: {},
+            Colacion1: {},
+            Comida: {},
+            Colacion2: {},
+            Cena: {}
+        },
+        Mes2: {
+            Desayuno: {},
+            Colacion1: {},
+            Comida: {},
+            Colacion2: {},
+            Cena: {}
+        }
+    };
+
+    const maxOpciones = 5;
+    const opcionesCount: { [key in TipoComida]: number } = {
+        Desayuno: 0,
+        Colacion1: 0,
+        Comida: 0,
+        Colacion2: 0,
+        Cena: 0
+    };
+
+    comidasAjustadas.forEach(comida => {
+        var tipoComidaAjustado = "";
+        switch (comida.tipo) {
+            case 'Colación 1':
+                tipoComidaAjustado = "Colacion1";
+                break;
+            case 'Colación 2':
+                tipoComidaAjustado = "Colacion2";
+                break;
+        
+            default:
+                tipoComidaAjustado = comida.tipo;
+                break;
+        } 
+        const tipoComida = tipoComidaAjustado as TipoComida;
+        if (opcionesCount[tipoComida] < maxOpciones) {
+            const opcionKey = `Opcion ${opcionesCount[tipoComida] + 1}`;
+            jsonResponse.Detox[tipoComida][opcionKey] = {
+                nombre: comida.nombre,
+                ingredientes: comida.ingredientes.map(ingrediente => ({
+                    nombre: ingrediente.nombre,
+                    porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas!.toFixed(2)} Calorías)`
+                }))
+            };
+            opcionesCount[tipoComida]++;
+        }
+    });
+
+
+    return jsonResponse;
+
+    //return comidasAjustadas;
 }
