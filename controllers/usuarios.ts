@@ -555,14 +555,13 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
 
    console.log("Calorias TMB: "+ tmb);
    console.log("Calorias Ajustadas por objetivo: "+ caloriasDiarias);
-
-    // Porcentajes de calorías por cada tipo de comida
+     // Porcentajes de calorías por cada tipo de comida (Aportación calórica por cada tipo de comida)
     const porcentajesCaloricos = {
-        desayuno: 0.20,
-        colacion1: 0.15,
-        comida: 0.30,
-        colacion2: 0.15,
-        cena: 0.20
+        desayuno: 0.225,
+        colacion1: 0.10,
+        comida: 0.35,
+        colacion2: 0.10,
+        cena: 0.225
     };
 
     // Calorías objetivo por cada tipo de comida
@@ -605,7 +604,7 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
             console.log(`Comida: ${comida.nombre}`);
             console.log(`Calorías Totales Ajustadas: ${comida.caloriasTotalesAjustadas}`);
             comida.ingredientes.forEach(ingrediente => {
-                console.log(`- ${ingrediente.nombre}: ${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas} Calorías)`);
+                console.log(`- ${ingrediente.nombre}: ${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas?.toFixed(2)} Calorías)`);
             });
             console.log();
         });
