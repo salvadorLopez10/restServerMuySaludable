@@ -664,7 +664,8 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
                 nombre: comida.nombre,
                 ingredientes: comida.ingredientes.map(ingrediente => ({
                     nombre: ingrediente.nombre,
-                    porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas!.toFixed(2)} Calorías)`
+                    //porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas!.toFixed(2)} Calorías)`
+                    porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion}`
                 }))
             };
             opcionesCount[tipoComida]++;
