@@ -10,7 +10,10 @@ const Plan_Nutricional = db.define("plan_nutricional", {
     },
     contenido: {
       type: DataTypes.TEXT,
-    }
+    },
+    activo: {
+      type: DataTypes.TINYINT,
+    },
   },{
     freezeTableName: true,
     tableName: "plan_nutricional"
