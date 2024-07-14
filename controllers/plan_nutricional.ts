@@ -41,6 +41,44 @@ export const getPlanNutricionalByIdUsuario = async (req: Request, res: Response)
 
 };
 
+export const getAllPlansActiveByIdUsuario = async (req: Request, res: Response) => {
+
+    const { idUser } = req.params;
+
+    try{
+        const planes = await Plan_Nutricional.findAll({
+            where: {
+                id_usuario: idUser,
+                activo: 1
+            }
+        });
+
+        if( planes ){
+            res.status(200).json({
+                status: `Ok`,
+                msg: `Se han obtenido correctamente los planes ACTIVOS del usuario ${idUser}`,
+                data: planes
+            });
+
+        }else{
+            res.status(200).json({
+                status: `no_results`,
+                msg: "No se han obtenido planes ACTIVOS relacionados al usuario con el id "+idUser,
+                data: []
+            });
+        }
+
+    }catch (error) {
+        console.log(error);
+        res.status(500).json({
+            status: "Error",
+            msg: "Error: Contacte al administrador",
+            data: error
+        });
+    }
+
+};
+
 export const creaPlanNutricional = async (req: Request, res: Response) => {
     const { body } = req;
 
