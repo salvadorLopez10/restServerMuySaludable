@@ -384,6 +384,7 @@ export const generateMealPlan = async(req: Request, res: Response) => {
                 c.nombre nombreComida,
                 c.tipo,
                 c.categoria,
+                c.detox,
                 a.id idIngrediente,
                 a.nombre nombreIngrediente,
                 a.porcion porcionBase,
@@ -394,7 +395,7 @@ export const generateMealPlan = async(req: Request, res: Response) => {
                 INNER JOIN alimentos_comidas ac ON ac.id_comida = c.id
                 INNER JOIN alimentos a ON ac.id_alimento = a.id
             WHERE
-                c.categoria = :tipo_dieta  
+                c.categoria = :tipo_dieta
         `,
         {
             replacements: { tipo_dieta },
@@ -403,7 +404,7 @@ export const generateMealPlan = async(req: Request, res: Response) => {
         );
 
         //console.log(JSON.stringify(queryComidas,null,1))
-        console.log(alimentos_evitar);
+        //console.log(alimentos_evitar);
 
         const arrayComidasFormat  = formatMeals(queryComidas);
 
@@ -447,6 +448,7 @@ function formatMeals(meals: Meal[]): MealPlan {
                 nombre: meal.nombreComida,
                 tipo: meal.tipo,
                 idComida: meal.idComida,
+                detox: Number(meal.detox),
                 ingredientes: [],
             };
         }
@@ -530,13 +532,21 @@ function calcularCaloriasTotalesAjustadas(ingredientes: Ingredient[]): number {
     return ingredientes.reduce((acc, ingrediente) => acc + (ingrediente.caloriasAjustadas ?? 0), 0);
 }
 
-function seleccionarComidasSinRepeticion(comidas: MealGroup[], cantidad: number, alimentosAEvitar: string[]): MealGroup[] {
+function seleccionarComidasSinRepeticion(comidas: MealGroup[], cantidad: number, alimentosAEvitar: string[], paraDetox: boolean): MealGroup[] {
 
-    const comidasFiltradas = alimentosAEvitar.length > 0
-        ? comidas.filter(comida =>
-            !comida.ingredientes.some(ingrediente => alimentosAEvitar.includes(ingrediente.nombre))
-        )
-        : comidas;
+    // const comidasFiltradas = alimentosAEvitar.length > 0
+    //     ? comidas.filter(comida =>
+    //         !comida.ingredientes.some(ingrediente => alimentosAEvitar.includes(ingrediente.nombre))
+    //     )
+    //     : comidas;
+
+    const comidasFiltradas = comidas.filter(comida => {
+        const noContieneAlimentosEvitar = !comida.ingredientes.some(ingrediente =>
+          alimentosAEvitar.includes(ingrediente.nombre)
+        );
+        const esParaPlan = paraDetox ? comida.detox === 1 : comida.detox === 0;
+        return noContieneAlimentosEvitar && esParaPlan;
+    });
 
     const comidasSeleccionadas: MealGroup[] = [];
     const comidasDisponibles = [...comidasFiltradas];
@@ -555,6 +565,8 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
 
    console.log("Calorias TMB: "+ tmb);
    console.log("Calorias Ajustadas por objetivo: "+ caloriasDiarias);
+   //console.log("PLAAAN");
+   //console.log(JSON.stringify(planAlimenticio,null,2));
      // Porcentajes de calorías por cada tipo de comida (Aportación calórica por cada tipo de comida)
     const porcentajesCaloricos = {
         desayuno: 0.225,
@@ -571,21 +583,47 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
     const caloriasColacion2 = caloriasDiarias * porcentajesCaloricos.colacion2;
     const caloriasCena = caloriasDiarias * porcentajesCaloricos.cena;
 
-    const desayunos = seleccionarComidasSinRepeticion(planAlimenticio.Desayunos, 5,alimentosEvitar);
-    const colaciones_1 = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 5,alimentosEvitar);
-    const comidas = seleccionarComidasSinRepeticion(planAlimenticio.Comidas, 5,alimentosEvitar);
-    const colaciones_2 = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 5,alimentosEvitar);
-    const cenas = seleccionarComidasSinRepeticion(planAlimenticio.Cenas, 5,alimentosEvitar);
+    // const desayunosDetox = seleccionarComidasSinRepeticion(planAlimenticio.Desayunos, 5,alimentosEvitar,true);
+    // const colaciones_1Detox = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 5,alimentosEvitar,true);
+    // const comidasDetox = seleccionarComidasSinRepeticion(planAlimenticio.Comidas, 5,alimentosEvitar,true);
+    // const colaciones_2Detox = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 5,alimentosEvitar,true);
+    // const cenasDetox = seleccionarComidasSinRepeticion(planAlimenticio.Cenas, 5,alimentosEvitar,true);
 
-    const comidasSeleccionadas = [
-        { comidas: desayunos, caloriasObjetivo: caloriasDesayuno, tipo: "Desayuno" },
-        { comidas: colaciones_1, caloriasObjetivo: caloriasColacion1, tipo: "Colación 1"},
-        { comidas: comidas, caloriasObjetivo: caloriasComida, tipo: "Comida"},
-        { comidas: colaciones_2, caloriasObjetivo: caloriasColacion2, tipo: "Colación 2"},
-        { comidas: cenas, caloriasObjetivo: caloriasCena, tipo: "Cena"}
+    const [ desayunosDetox, colaciones_1Detox, comidasDetox, colaciones_2Detox, cenasDetox  ] = getComidasSinRepeticion( planAlimenticio, alimentosEvitar, true );
+    
+    //Comidas para mes 1
+    const [ desayunosMes1, colaciones_1Mes1, comidasMes1, colaciones_2Mes1, cenasMes1  ] = getComidasSinRepeticion( planAlimenticio, alimentosEvitar, false );
+
+    //Comidas para mes 2
+    const [ desayunosMes2, colaciones_1Mes2, comidasMes2, colaciones_2Mes2, cenasMes2  ] = getComidasSinRepeticion( planAlimenticio, alimentosEvitar, false );
+
+    const comidasSeleccionadasDetox = [
+        { comidas: desayunosDetox, caloriasObjetivo: caloriasDesayuno, tipo: "Desayuno" },
+        { comidas: colaciones_1Detox, caloriasObjetivo: caloriasColacion1, tipo: "Colación 1"},
+        { comidas: comidasDetox, caloriasObjetivo: caloriasComida, tipo: "Comida"},
+        { comidas: colaciones_2Detox, caloriasObjetivo: caloriasColacion2, tipo: "Colación 2"},
+        { comidas: cenasDetox, caloriasObjetivo: caloriasCena, tipo: "Cena"}
     ];
 
-    const comidasAjustadas = comidasSeleccionadas.map(({ comidas, caloriasObjetivo, tipo }) => {
+    const comidasSeleccionadasMes1 = [
+        { comidas: desayunosMes1, caloriasObjetivo: caloriasDesayuno, tipo: "Desayuno" },
+        { comidas: colaciones_1Mes1, caloriasObjetivo: caloriasColacion1, tipo: "Colación 1"},
+        { comidas: comidasMes1, caloriasObjetivo: caloriasComida, tipo: "Comida"},
+        { comidas: colaciones_2Mes1, caloriasObjetivo: caloriasColacion2, tipo: "Colación 2"},
+        { comidas: cenasMes1, caloriasObjetivo: caloriasCena, tipo: "Cena"}
+    ];
+
+    const comidasSeleccionadasMes2 = [
+        { comidas: desayunosMes2, caloriasObjetivo: caloriasDesayuno, tipo: "Desayuno" },
+        { comidas: colaciones_1Mes2, caloriasObjetivo: caloriasColacion1, tipo: "Colación 1"},
+        { comidas: comidasMes2, caloriasObjetivo: caloriasComida, tipo: "Comida"},
+        { comidas: colaciones_2Mes2, caloriasObjetivo: caloriasColacion2, tipo: "Colación 2"},
+        { comidas: cenasMes2, caloriasObjetivo: caloriasCena, tipo: "Cena"}
+    ];
+
+
+
+    const comidasAjustadasDetox = comidasSeleccionadasDetox.map(({ comidas, caloriasObjetivo, tipo }) => {
         return comidas.map(comida => {
             const ingredientesAjustados = ajustarPorciones(comida.ingredientes, caloriasObjetivo);
             const caloriasTotalesAjustadas = calcularCaloriasTotalesAjustadas(ingredientesAjustados);
@@ -599,14 +637,44 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
         });
     }).flat();
 
-     comidasAjustadas.forEach(comida => {
+    const comidasAjustadasMes1 = comidasSeleccionadasMes1.map(({ comidas, caloriasObjetivo, tipo }) => {
+        return comidas.map(comida => {
+            const ingredientesAjustados = ajustarPorciones(comida.ingredientes, caloriasObjetivo);
+            const caloriasTotalesAjustadas = calcularCaloriasTotalesAjustadas(ingredientesAjustados);
+            return {
+                ...comida,
+                tipo: tipo,
+                ingredientes: ingredientesAjustados,
+                caloriasTotalesAjustadas: Math.round(caloriasTotalesAjustadas),
+                
+            };
+        });
+    }).flat();
+
+    const comidasAjustadasMes2 = comidasSeleccionadasMes2.map(({ comidas, caloriasObjetivo, tipo }) => {
+        return comidas.map(comida => {
+            const ingredientesAjustados = ajustarPorciones(comida.ingredientes, caloriasObjetivo);
+            const caloriasTotalesAjustadas = calcularCaloriasTotalesAjustadas(ingredientesAjustados);
+            return {
+                ...comida,
+                tipo: tipo,
+                ingredientes: ingredientesAjustados,
+                caloriasTotalesAjustadas: Math.round(caloriasTotalesAjustadas),
+                
+            };
+        });
+    }).flat();
+
+     comidasAjustadasDetox.forEach(comida => {
+            //console.log("COMIDAAA");
+            //console.log(JSON.stringify(comida,null,2));
             console.log(`${comida.tipo}`);
             console.log(`Comida: ${comida.nombre}`);
             console.log(`Calorías Totales Ajustadas: ${comida.caloriasTotalesAjustadas}`);
             comida.ingredientes.forEach(ingrediente => {
                 console.log(`- ${ingrediente.nombre}: ${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas?.toFixed(2)} Calorías)`);
             });
-            console.log();
+
         });
 
     // Formatear la salida en un objeto JSON
@@ -643,7 +711,32 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
         Cena: 0
     };
 
-    comidasAjustadas.forEach(comida => {
+    const opcionesCountDetox = {
+        Desayuno: 0,
+        Colacion1: 0,
+        Comida: 0,
+        Colacion2: 0,
+        Cena: 0
+    };
+
+    const opcionesCountMes1 = {
+        Desayuno: 0,
+        Colacion1: 0,
+        Comida: 0,
+        Colacion2: 0,
+        Cena: 0
+    };
+
+    const opcionesCountMes2 = {
+        Desayuno: 0,
+        Colacion1: 0,
+        Comida: 0,
+        Colacion2: 0,
+        Cena: 0
+    };
+    
+
+    comidasAjustadasDetox.forEach(comida => {
         var tipoComidaAjustado = "";
         switch (comida.tipo) {
             case 'Colación 1':
@@ -658,8 +751,9 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
                 break;
         } 
         const tipoComida = tipoComidaAjustado as TipoComida;
-        if (opcionesCount[tipoComida] < maxOpciones) {
-            const opcionKey = `Opcion ${opcionesCount[tipoComida] + 1}`;
+
+        if (opcionesCountDetox[tipoComida] < maxOpciones) {
+            const opcionKey = `Opcion ${opcionesCountDetox[tipoComida] + 1}`;
             jsonResponse.Detox[tipoComida][opcionKey] = {
                 nombre: comida.nombre,
                 ingredientes: comida.ingredientes.map(ingrediente => ({
@@ -668,12 +762,83 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
                     porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion}`
                 }))
             };
-            opcionesCount[tipoComida]++;
+            opcionesCountDetox[tipoComida]++;
         }
     });
 
+    comidasAjustadasMes1.forEach(comida => {
+        var tipoComidaAjustado = "";
+        switch (comida.tipo) {
+            case 'Colación 1':
+                tipoComidaAjustado = "Colacion1";
+                break;
+            case 'Colación 2':
+                tipoComidaAjustado = "Colacion2";
+                break;
+        
+            default:
+                tipoComidaAjustado = comida.tipo;
+                break;
+        } 
+        const tipoComida = tipoComidaAjustado as TipoComida;
+
+        if (opcionesCountMes1[tipoComida] < maxOpciones) {
+            const opcionKey = `Opcion ${opcionesCountMes1[tipoComida] + 1}`;
+            jsonResponse.Mes1[tipoComida][opcionKey] = {
+                nombre: comida.nombre,
+                ingredientes: comida.ingredientes.map(ingrediente => ({
+                    nombre: ingrediente.nombre,
+                    //porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas!.toFixed(2)} Calorías)`
+                    porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion}`
+                }))
+            };
+            opcionesCountMes1[tipoComida]++;
+        }
+    });
+
+    comidasAjustadasMes2.forEach(comida => {
+        var tipoComidaAjustado = "";
+        switch (comida.tipo) {
+            case 'Colación 1':
+                tipoComidaAjustado = "Colacion1";
+                break;
+            case 'Colación 2':
+                tipoComidaAjustado = "Colacion2";
+                break;
+        
+            default:
+                tipoComidaAjustado = comida.tipo;
+                break;
+        } 
+        const tipoComida = tipoComidaAjustado as TipoComida;
+
+        if (opcionesCountMes2[tipoComida] < maxOpciones) {
+            const opcionKey = `Opcion ${opcionesCountMes2[tipoComida] + 1}`;
+            jsonResponse.Mes2[tipoComida][opcionKey] = {
+                nombre: comida.nombre,
+                ingredientes: comida.ingredientes.map(ingrediente => ({
+                    nombre: ingrediente.nombre,
+                    //porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion} (${ingrediente.caloriasAjustadas!.toFixed(2)} Calorías)`
+                    porcion: `${ingrediente.porcionAjustada} ${ingrediente.tipoPorcion}`
+                }))
+            };
+            opcionesCountMes2[tipoComida]++;
+        }
+    });
 
     return jsonResponse;
 
     //return comidasAjustadas;
+}
+
+function getComidasSinRepeticion( planAlimenticio: MealPlan, alimentosEvitar: string[], paraDetox: boolean ){
+
+    const desayunos = seleccionarComidasSinRepeticion(planAlimenticio.Desayunos, 5,alimentosEvitar,paraDetox);
+    const colaciones_1 = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 5,alimentosEvitar,paraDetox);
+    const comidas = seleccionarComidasSinRepeticion(planAlimenticio.Comidas, 5,alimentosEvitar,paraDetox);
+    const colaciones_2 = seleccionarComidasSinRepeticion(planAlimenticio.Colaciones, 5,alimentosEvitar,paraDetox);
+    const cenas = seleccionarComidasSinRepeticion(planAlimenticio.Cenas, 5,alimentosEvitar,paraDetox);
+
+    return [ desayunos, colaciones_1, comidas, colaciones_2, cenas ];
+
 }

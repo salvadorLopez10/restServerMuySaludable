@@ -8,6 +8,7 @@ export interface Meal {
     porcionBase: string;
     tipoPorcion: string;
     caloriasBase: string;
+    detox:string;
 }
 
 export interface Ingredient {
@@ -26,6 +27,7 @@ export interface MealGroup {
     idComida: number;
     caloriasTotalesAjustadas?: number;
     caloriasTotales?: number | undefined;
+    detox: number;
 }
 
 export interface MealPlan {
@@ -52,12 +54,24 @@ export interface JSONResponse {
     };
     Mes1: {
         [key in TipoComida]: {
-            [key: string]: {};
+            [key: string]: {
+                nombre: string;
+                ingredientes: {
+                    nombre: string;
+                    porcion: string;
+                }[];
+            }
         };
     };
     Mes2: {
         [key in TipoComida]: {
-            [key: string]: {};
+            [key: string]: {
+                nombre: string;
+                ingredientes: {
+                    nombre: string;
+                    porcion: string;
+                }[];
+            }
         };
     };
 }
