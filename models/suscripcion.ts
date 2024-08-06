@@ -17,7 +17,11 @@ const Suscripcion = db.define("suscripciones", {
   //Activo, Vencido, Cancelado
   estado:{
     type: DataTypes.STRING,
-  }
+  },
+  fecha_compra: {
+    type: DataTypes.DATE,
+  },
+
 });
 
 export default Suscripcion;

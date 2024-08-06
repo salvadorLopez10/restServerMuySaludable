@@ -13,10 +13,15 @@ export const getSuscripciones = async (req: Request, res: Response) => {
 export const getSuscripcion = async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const alimento = await Suscripcion.findByPk(id);
+  const suscripcion = await Suscripcion.findByPk(id);
 
-  if (alimento) {
-    res.json({ alimento });
+  if (suscripcion) {
+    res.status(200).json({
+        status: `Ok`,
+        msg: "La suscripción "+id+" se ha obtenido correctamente",
+        data: suscripcion
+    });
+
   } else {
     res.status(404).json({
       msg: `No exite la suscripción con el id ${id}`,
@@ -67,7 +72,8 @@ export const updateSuscripcion = async (req: Request, res: Response) => {
        }
 
        await suscripcion.update( {
-        estado:body.estado
+        estado:body.estado,
+        fecha_compra: body.fecha_compra
        } );
 
        res.status(200).json({
