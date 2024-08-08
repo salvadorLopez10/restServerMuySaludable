@@ -1,4 +1,5 @@
 import { Sequelize } from "sequelize";
+import mysql2 from 'mysql2'; 
 
 const db = new Sequelize(
   "muy_saludable_db",
@@ -11,6 +12,7 @@ const db = new Sequelize(
     //host: 'localhost',
     host: "107.180.114.45",
     dialect: "mysql",
+    dialectModule: mysql2,
     //port: 8889
     port: 3306,
     //logging: false
