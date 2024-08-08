@@ -2,15 +2,17 @@ import { Sequelize } from "sequelize";
 
 const db = new Sequelize(
   "muy_saludable_db",
-  "root",
+  //"root",
+  "master",
   //"B34C4dFG6ahB64D5CA6bFbghH4bc2gfa",
-  "root",
+  //"root",
+  "]NmGhf)vwZJ8",
   {
-    host: 'localhost',
-    //host: "monorail.proxy.rlwy.net",
+    //host: 'localhost',
+    host: "107.180.114.45",
     dialect: "mysql",
-    port: 8889
-    //port: 58219,
+    //port: 8889
+    port: 3306,
     //logging: false
   }
 );
