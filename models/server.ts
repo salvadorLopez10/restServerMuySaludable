@@ -15,7 +15,7 @@ import cors from "cors";
 import db from '../db/connection';
 
 class Server {
-  private app: Application;
+  public app: Application;
   private port: string;
   private apiPaths = {
     usuarios: "/api/usuarios",

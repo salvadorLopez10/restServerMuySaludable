@@ -4,4 +4,6 @@ dotenv.config();
 
 const server = new Server();
 
-server.listen();
+//server.listen();
+
+export default server.app;

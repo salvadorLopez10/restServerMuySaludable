@@ -2,13 +2,9 @@
   "name": "backend-ts",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prestart": "npm run build",
-    "typecheck": "tsc --noEmit",
-    "start": "node dist/app.js",
-    "build": "tsc"
+    "start": "tsc && node dist/app.js"
   },
   "keywords": [],
   "author": "",
