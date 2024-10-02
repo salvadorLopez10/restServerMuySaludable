@@ -518,7 +518,7 @@ function ajustarPorciones(ingredientes: Ingredient[], caloriasObjetivoPorComida:
                 porcionAjustadaRedondeada = Math.round(porcionAjustada * 10) / 10;
                 break;
             default:
-                porcionAjustadaRedondeada = porcionAjustada; // No redondear si el tipo no está en la lista
+                porcionAjustadaRedondeada = Number(Math.round(porcionAjustada).toFixed(2)); //Se redondea y máximos 2 decimales en caso de que el tipo no exista en la lista
         }
 
         return {
