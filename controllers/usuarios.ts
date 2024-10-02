@@ -508,8 +508,8 @@ function ajustarPorciones(ingredientes: Ingredient[], caloriasObjetivoPorComida:
             case 'hojas':
                 porcionAjustadaRedondeada = Math.round(porcionAjustada);
                 break;
-            case 'g':
-                porcionAjustadaRedondeada = Math.round(porcionAjustada / 5) * 5;
+            case 'gr':
+                porcionAjustadaRedondeada = Number((Math.round(porcionAjustada / 5) * 5).toFixed(2));
                 break;
             case 'ml':
                 porcionAjustadaRedondeada = Math.round(porcionAjustada / 10) * 10;
