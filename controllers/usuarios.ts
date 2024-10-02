@@ -465,8 +465,11 @@ function formatMeals(meals: Meal[]): MealPlan {
         if (groupedMeals.hasOwnProperty(id)) {
             const meal = groupedMeals[id];
             const mealType = meals.find(m => m.idComida === Number(id))?.tipo;
-            if (mealType) {
+            // Validar si el tipo de comida existe en mealTypes
+            if (mealType && mealTypes[mealType]) {
                 mealPlan[mealTypes[mealType]].push(meal);
+            } else {
+                console.error(`Tipo de comida no encontrado: ${mealType} para la comida con id: ${id}`);
             }
         }
     }
@@ -569,11 +572,11 @@ function generarPlanAlimenticio(objetivo: string, tmb: string, planAlimenticio:M
    //console.log(JSON.stringify(planAlimenticio,null,2));
      // Porcentajes de calorías por cada tipo de comida (Aportación calórica por cada tipo de comida)
     const porcentajesCaloricos = {
-        desayuno: 0.225,
+        desayuno: 0.25,
         colacion1: 0.10,
         comida: 0.35,
         colacion2: 0.10,
-        cena: 0.225
+        cena: 0.20
     };
 
     // Calorías objetivo por cada tipo de comida
