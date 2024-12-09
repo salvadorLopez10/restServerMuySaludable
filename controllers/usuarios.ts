@@ -3,6 +3,34 @@ import Usuario from '../models/usuario';
 import { QueryTypes, Sequelize, json } from "sequelize";
 import db from "../db/connection";
 import { Ingredient, JSONResponse, Meal, MealGroup, MealPlan, TipoComida } from "./interfaces";
+import NuevoAlimento from "../models/nuevos_alimentos";
+
+type Alimento = {
+    id: number;
+    nombre: string;
+    grupo: string;
+    equivalente: string;
+    unidad_medida: string;
+    proteinas: number; // Cambiar a number
+    lipidos: number;   // Cambiar a number
+    hco: number;       // Cambiar a number
+    kcal: number;      // Cambiar a number
+  };
+
+type Macronutrientes = {
+    calorias: number;
+    proteinas: number;
+    carbohidratos: number;
+    grasas: number;
+};
+
+const distribucionPorComida = {
+    Desayuno: ['Frutas', 'Cereales', 'Leche baja en grasa'],
+    'Colación 1': ['Frutas', 'Grasa sin proteína', 'Alimentos libres de energía'],
+    Comida: ['Verduras', 'Cereales', 'Alimentos de origen animal bajo en grasa'],
+    'Colación 2': ['Frutas', 'Leguminosas', 'Grasa con proteína'],
+    Cena: ['Verduras', 'Cereales', 'Alimentos de origen animal muy bajo en grasa'],
+  };
 
 export const getUsuarios = async ( req: Request, res: Response ) => {
 
@@ -333,23 +361,23 @@ const getTMBbyActividad = ( tmb: number, actividad: string | unknown ) => {
 
     switch (actividad) {
         case "poco_ninguno":
-            tmba = tmb * 1.2;
+            tmba = tmb * 1.1;
             break;
         
         case "ligero":
-            tmba = tmb * 1.375;
+            tmba = tmb * 1.2;
             break;
 
         case "moderado":
-            tmba = tmb * 1.55;
+            tmba = tmb * 1.3;
             break;
         
         case "fuerte":
-            tmba = tmb * 1.725;
+            tmba = tmb * 1.4;
             break;
         
         case "muy_fuerte":
-            tmba = tmb * 1.9;
+            tmba = tmb * 1.5;
             break;
     
         default:
@@ -481,11 +509,13 @@ function formatMeals(meals: Meal[]): MealPlan {
 function ajustarCaloriasPorObjetivo(tmb: number, objetivo: string): number {
     switch (objetivo) {
         case 'Bajar de peso':
-            return tmb * 0.8; // Reducir en 20%
+            //return tmb * 0.8; // Reducir en 20%
+            return Number(tmb) - 500; // Reducir 500 kcal
         case 'Mantenimiento':
             return tmb; // Mismo que la TMB
         case 'Ganar masa muscular':
-            return tmb * 1.2; // Incrementar en 20%
+            //return tmb * 1.2; // Incrementar en 20%
+            return Number(tmb) + 500; //  Aumentar 500 kcal
         default:
             throw new Error('Objetivo no válido');
     }
@@ -845,3 +875,127 @@ function getComidasSinRepeticion( planAlimenticio: MealPlan, alimentosEvitar: st
     return [ desayunos, colaciones_1, comidas, colaciones_2, cenas ];
 
 }
+
+export const generateMealPlanNew = async(req: Request, res: Response) => {
+    const { body } = req;
+
+    const tipo_dieta = body.tipo_dieta;
+    const alimentos_evitar = body.alimentos_evitar;
+    const objetivo = body.objetivo;
+    const tmb = body.tmb;
+
+    //const tmbAjustadaObjetivo = ajustarCaloriasPorObjetivo( tmb, objetivo );
+
+    const porcentajesDistribucion = getPorcentajesDistribucionPorObjetivo( objetivo );
+
+    await generarPlan(tmb, objetivo);
+
+    return res.status(200).json({
+        status:"Ok",
+        msg: "Plan generado ",
+        //data: arrayComidasFormat
+        data: porcentajesDistribucion
+    });
+}
+
+function getPorcentajesDistribucionPorObjetivo( objetivo: string ){
+
+    switch (objetivo) {
+        case 'Bajar de peso':
+            return { proteina: 0.3, lipidos: 0.3, hco: 0.4 };
+        
+        case 'Mantenimiento':
+            return { proteina: 0.25, lipidos: 0.25, hco: 0.5 };
+            
+        case 'Ganar masa muscular':
+            return { proteina: 0.35, lipidos: 0.2, hco: 0.45 };
+ 
+        default:
+            throw new Error('Objetivo no válido');
+    }
+
+}
+
+// Función para calcular los gramos de macronutrientes según las calorías diarias
+function calcularMacronutrientes(calorias: number, distribucion: { proteina: number; lipidos: number; hco: number }) {
+    const proteinaGramos = (calorias * distribucion.proteina) / 4; // 4 kcal por gramo de proteína
+    const lipidosGramos = (calorias * distribucion.lipidos) / 9; // 9 kcal por gramo de lípidos
+    const hcoGramos = (calorias * distribucion.hco) / 4; // 4 kcal por gramo de carbohidratos
+    return { proteina: proteinaGramos, lipidos: lipidosGramos, hco: hcoGramos };
+  }
+
+async function generarPlan( tmb:number, objetivo:string): Promise<void> {
+    const caloriasDiarias = ajustarCaloriasPorObjetivo(tmb,objetivo);
+    const distribucion = getPorcentajesDistribucionPorObjetivo( objetivo );
+    const macronutrientesTotales = calcularMacronutrientes(caloriasDiarias, distribucion);
+
+    console.log('Calorías Diarias:', caloriasDiarias);
+    console.log('Macronutrientes Totales:', macronutrientesTotales);
+
+    let macronutrientesRestantes = { ...macronutrientesTotales };
+
+    const plan: Record<string, Alimento[][]> = {};
+    for (const [comida, grupos] of Object.entries(distribucionPorComida)) {
+        plan[comida] = await generarOpcionesParaComida(comida, grupos, macronutrientesRestantes);
+    }
+
+    // Mostrar el plan alimenticio
+    console.log('\nPlan Alimenticio:');
+    for (const [comida, opciones] of Object.entries(plan)) {
+        console.log(`\n${comida}:`);
+        opciones.forEach((opcion, index) => {
+        console.log(`Opción ${index + 1}:`);
+        opcion.forEach((alimento) =>
+            console.log(
+            `- ${alimento.nombre} (${alimento.equivalente} ${alimento.unidad_medida}): ${alimento.kcal} kcal`
+            )
+        );
+        });
+    }
+}
+
+async function generarOpcionesParaComida(
+    comida: string,
+    grupos: string[],
+    macronutrientesRestantes: { proteina: number; lipidos: number; hco: number }
+  ): Promise<Alimento[][]> {
+    const opciones: Alimento[][] = [];
+    
+    for (let i = 0; i < 3; i++) { // Tres opciones por comida
+      const opcion: Alimento[] = [];
+      for (const grupo of grupos) {
+        const alimentosPorGrupo = await NuevoAlimento.findAll({
+          where: { grupo },
+          order: [['nombre', 'ASC']],
+        });
+  
+        const alimentosConvertidos: Alimento[] = alimentosPorGrupo.map((alimento: any) => ({
+          id: alimento.id,
+          nombre: alimento.nombre,
+          grupo: alimento.grupo,
+          equivalente: alimento.equivalente,
+          unidad_medida: alimento.unidad_medida,
+          proteinas: parseFloat(alimento.proteinas),
+          lipidos: parseFloat(alimento.lipidos),
+          hco: parseFloat(alimento.hco),
+          kcal: parseFloat(alimento.kcal),
+        }));
+  
+        if (alimentosConvertidos.length > 0) {
+          const alimentoAleatorio =
+            alimentosConvertidos[Math.floor(Math.random() * alimentosConvertidos.length)];
+          opcion.push(alimentoAleatorio);
+  
+          // Actualizar los macronutrientes restantes
+          macronutrientesRestantes.proteina -= alimentoAleatorio.proteinas;
+          macronutrientesRestantes.lipidos -= alimentoAleatorio.lipidos;
+          macronutrientesRestantes.hco -= alimentoAleatorio.hco;
+        }
+      }
+      opciones.push(opcion);
+    }
+  
+    return opciones;
+}
+  
+

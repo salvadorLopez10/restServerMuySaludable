@@ -11,6 +11,7 @@ import codigosRoutes from "../routes/codigos_descuento";
 import configsRoutes from "../routes/config";
 import saludRoutes from "../routes/salud_financiera_mental";
 import planNutricionalRoutes from "../routes/plan_nutricional";
+import mailServiceRoutes from "../routes/mailService";
 import cors from "cors";
 import db from '../db/connection';
 
@@ -29,7 +30,8 @@ class Server {
     codigosDescuento: "/api/codigosDescuento",
     config: "/api/config",
     salud: "/api/salud",
-    planNutricional: "/api/planNutricional"
+    planNutricional: "/api/planNutricional",
+    sendEmail: "/api/sendEmail"
   };
 
   constructor() {
@@ -80,6 +82,7 @@ class Server {
     this.app.use(this.apiPaths.config, configsRoutes);
     this.app.use(this.apiPaths.salud, saludRoutes);
     this.app.use(this.apiPaths.planNutricional, planNutricionalRoutes);
+    this.app.use(this.apiPaths.sendEmail, mailServiceRoutes);
 
   }
 
