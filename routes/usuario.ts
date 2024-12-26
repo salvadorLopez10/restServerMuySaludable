@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { deleteUsuario, emailExists, getUsuario, getUsuarios, postUsuario, putUsuario, login, calculateTMB, generateMealPlan } from "../controllers/usuarios";
+import { deleteUsuario, emailExists, getUsuario, getUsuarios, postUsuario, putUsuario, login, calculateTMB, generateMealPlan, generateMealPlanNew } from "../controllers/usuarios";
 
 
 const router  = Router();
@@ -14,6 +14,7 @@ router.put('/:id', putUsuario );
 router.delete('/:id', deleteUsuario );
 router.post('/checkEmail', emailExists );
 router.post('/generatePlan', generateMealPlan );
+router.post('/generatePlanNew', generateMealPlanNew );
 
 
 export default router;

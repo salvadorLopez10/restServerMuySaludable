@@ -1,6 +1,7 @@
 import express, { Application } from 'express';
 import userRoutes from "../routes/usuario";
 import alimentoRoutes from "../routes/alimento";
+import nuevosAlimentoRoutes from "../routes/nuevos_alimentos";
 import catalogoPorcionTiposRoutes from "../routes/catalogo_porcion_tipo";
 import comidasRoutes from "../routes/comida";
 import alimentosComidasRoutes from "../routes/alimentos_comida";
@@ -21,6 +22,7 @@ class Server {
   private apiPaths = {
     usuarios: "/api/usuarios",
     alimentos: "/api/alimentos",
+    nuevosAlimentos: "/api/nuevosAlimentos",
     catalogoPorcionTipos: "/api/catalogoPorcionTipos",
     comidas: "/api/comidas",
     alimentosComida: "/api/alimentosComida",
@@ -72,6 +74,7 @@ class Server {
   routes() {
     this.app.use(this.apiPaths.usuarios, userRoutes);
     this.app.use(this.apiPaths.alimentos, alimentoRoutes);
+    this.app.use(this.apiPaths.nuevosAlimentos, nuevosAlimentoRoutes);
     this.app.use(this.apiPaths.catalogoPorcionTipos,catalogoPorcionTiposRoutes);
     this.app.use(this.apiPaths.comidas, comidasRoutes);
     this.app.use(this.apiPaths.alimentosComida, alimentosComidasRoutes);

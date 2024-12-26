@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import Usuario from '../models/usuario';
-import { QueryTypes, Sequelize, json } from "sequelize";
+import { QueryTypes, Sequelize, json, Op } from "sequelize";
 import db from "../db/connection";
 import { Ingredient, JSONResponse, Meal, MealGroup, MealPlan, TipoComida } from "./interfaces";
 import NuevoAlimento from "../models/nuevos_alimentos";
@@ -9,20 +9,40 @@ type Alimento = {
     id: number;
     nombre: string;
     grupo: string;
-    equivalente: string;
+    equivalente: number;
     unidad_medida: string;
-    proteinas: number; // Cambiar a number
-    lipidos: number;   // Cambiar a number
-    hco: number;       // Cambiar a number
-    kcal: number;      // Cambiar a number
+    proteinas: number;
+    lipidos: number;
+    hco: number;
+    kcal: number;
+    tiempo_comida: string;
+    categoria: string;
+    createdAt: string;
+    updatedAt: string;
+};
+  
+type OpcionTiempoComida = {
+    opcion1: string[];
+    opcion2: string[];
+    opcion3: string[];
   };
 
-type Macronutrientes = {
-    calorias: number;
-    proteinas: number;
-    carbohidratos: number;
-    grasas: number;
+type PlanAlimenticio = {
+    desayuno: OpcionTiempoComida;
+    comida: OpcionTiempoComida;
+    cena: OpcionTiempoComida;
+    colacion: OpcionTiempoComida;
 };
+
+type CuadroDietosintetico = {
+    [grupo: string]: number;
+};
+
+// Definir un tipo para las claves de los grupos
+type GrupoRequerido = 'Verduras' | 'Frutas' | 'Cereales' | 'Leguminosas';
+  
+
+type TiempoComida = 'desayuno' | 'colacion' | 'comida' | 'cena';
 
 const distribucionPorComida = {
     Desayuno: ['Frutas', 'Cereales', 'Leche baja en grasa'],
@@ -877,26 +897,247 @@ function getComidasSinRepeticion( planAlimenticio: MealPlan, alimentosEvitar: st
 }
 
 export const generateMealPlanNew = async(req: Request, res: Response) => {
-    const { body } = req;
+    try {
+        const { tipo_dieta, alimentos_evitar, objetivo, tmb } = req.body;
 
-    const tipo_dieta = body.tipo_dieta;
-    const alimentos_evitar = body.alimentos_evitar;
-    const objetivo = body.objetivo;
-    const tmb = body.tmb;
+        if (!objetivo || !tmb) {
+            return res.status(400).json({ success: false, message: "Faltan parámetros requeridos: objetivo y/o tmb" });
+        }
 
-    //const tmbAjustadaObjetivo = ajustarCaloriasPorObjetivo( tmb, objetivo );
+        // Obtener la lista de alimentos
+        const alimentosRaw = await NuevoAlimento.findAll({
+            order: [["nombre", "ASC"]],
+        });
+        const alimentos: Alimento[] = alimentosRaw.map((alimento) => alimento.toJSON()) as Alimento[];
+  
+        // Distribución calórica según el objetivo
+        const caloriasObjetivo = calcularCaloriasPorObjetivo(tmb, objetivo);
+        console.log("TMB: "+tmb)
+        console.log("Calorias objetivo: "+caloriasObjetivo)
+        const distribucionCalorica = calcularDistribucionCalorica(caloriasObjetivo);
 
-    const porcentajesDistribucion = getPorcentajesDistribucionPorObjetivo( objetivo );
+        // Calcular cuadro dietosintético
+        const cuadroDietosintetico = calcularCuadroDietosintetico(alimentos, distribucionCalorica);
 
-    await generarPlan(tmb, objetivo);
+        // Filtrar alimentos según el tipo de dieta y alimentos a evitar
+        const alimentosFiltrados = alimentos.filter((alimento) =>
+            validarAlimento(alimento, tipo_dieta, alimentos_evitar)
+        );
 
-    return res.status(200).json({
-        status:"Ok",
-        msg: "Plan generado ",
-        //data: arrayComidasFormat
-        data: porcentajesDistribucion
-    });
+        // Generar el plan alimenticio
+        const plan = generarPlan(alimentosFiltrados, cuadroDietosintetico);
+
+        return res.status(200).json({
+            status:"Ok",
+            msg: "Plan generado ",
+            //data: arrayComidasFormat
+            data: plan
+        });
+
+    } catch (error:any) {
+        console.error(error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+
+    
 }
+
+const calcularCaloriasPorObjetivo = (tmb: number, objetivo: string): number => {
+    switch (objetivo) {
+      case "Bajar de peso":
+        return tmb * 0.8; // Reducir calorías en un 20%
+      case "Mantenimiento":
+        return tmb; // Mantener TMB
+      case "Ganar masa muscular":
+        return tmb * 1.2; // Incrementar calorías en un 20%
+      default:
+        throw new Error("Objetivo no válido");
+    }
+};
+
+// Función para calcular la distribución calórica de macronutrientes
+const calcularDistribucionCalorica = (calorias: number) => {
+
+    const objDistribucion = {
+        proteinas: calorias * 0.3 / 4, // 30% de las calorías en proteínas
+        carbohidratos: calorias * 0.5 / 4, // 50% de las calorías en carbohidratos
+        grasas: calorias * 0.2 / 9, // 20% de las calorías en grasas
+      };
+
+      console.log(JSON.stringify(objDistribucion,null,2));
+
+    return objDistribucion;
+};
+
+// Función para calcular el cuadro dietosintético dinámico
+const calcularCuadroDietosintetico = (alimentos: Alimento[], distribucionCalorica: any): CuadroDietosintetico => {
+    const cuadro: CuadroDietosintetico = {};
+  
+    alimentos.forEach((alimento) => {
+      if (distribucionCalorica.carbohidratos >= 0 && alimento.hco > 0) {
+        cuadro[alimento.grupo] = (cuadro[alimento.grupo] || 0) + 1;
+        distribucionCalorica.carbohidratos -= alimento.hco;
+      }
+      if (distribucionCalorica.proteinas >= 0 && alimento.proteinas > 0) {
+        cuadro[alimento.grupo] = (cuadro[alimento.grupo] || 0) + 1;
+        distribucionCalorica.proteinas -= alimento.proteinas;
+      }
+      if (distribucionCalorica.grasas >= 0 && alimento.lipidos > 0) {
+        cuadro[alimento.grupo] = (cuadro[alimento.grupo] || 0) + 1;
+        distribucionCalorica.grasas -= alimento.lipidos;
+      }
+    });
+
+    console.log(JSON.stringify(cuadro, null, 2));
+  
+    return cuadro;
+};
+  
+// Validar alimentos según tipo de dieta y restricciones
+const validarAlimento = (alimento: Alimento, tipo_dieta: string, alimentos_evitar: string[]): boolean => {
+    if (alimentos_evitar.includes(alimento.nombre)) return false;
+    if (tipo_dieta === "Vegetariana" && alimento.grupo.startsWith("AOA")) return false;
+    return true;
+};
+  
+// Generar el plan alimenticio distribuyendo alimentos en tiempos de comida
+const generarPlan = (alimentos: Alimento[], cuadroDietosintetico: CuadroDietosintetico): PlanAlimenticio => {
+    const plan: PlanAlimenticio = {
+      desayuno: generarOpcionesTiempo(alimentos, ["desayuno", "Todas"], cuadroDietosintetico),
+      comida: generarOpcionesTiempo(alimentos, ["comida", "Todas"], cuadroDietosintetico),
+      cena: generarOpcionesTiempo(alimentos, ["cena", "Todas"], cuadroDietosintetico),
+      colacion: generarOpcionesTiempo(alimentos, ["colacion", "Todas"], cuadroDietosintetico),
+    };
+  
+    return plan;
+};
+  
+
+// Generar 3 opciones para un tiempo de comida
+const generarOpcionesTiempo = (
+    alimentos: Alimento[],
+    tiempos: string[],
+    cuadroDietosintetico: CuadroDietosintetico
+  ): OpcionTiempoComida => {
+    const alimentosFiltrados = alimentos.filter((alimento) =>
+      tiempos.some((tiempo) => alimento.tiempo_comida.includes(tiempo))
+    );
+  
+    const opciones: string[][] = [];
+  
+    for (let i = 0; i < 3; i++) {
+      const opcion: string[] = [];
+      const alimentosUsados = new Set<string>();
+  
+      // Definir grupos y límites realistas
+      const gruposRequeridos: Record<string, number> = {
+        Verduras: 3,
+        Frutas: tiempos.includes("desayuno") || i === 0 ? 1 : 0,
+        Cereales: tiempos.includes("desayuno") || tiempos.includes("comida") ? 1 : 0,
+        Leguminosas: tiempos.includes("comida") ? 1 : 0,
+        AOA: 1, // Una proteína principal
+      };
+  
+      Object.keys(gruposRequeridos).forEach((grupo) => {
+        // Filtrar alimentos por grupo
+        const grupoAlimentos = alimentosFiltrados.filter((alimento) =>
+          grupo === "AOA"
+            ? alimento.grupo.startsWith("AOA")
+            : alimento.grupo === grupo && !alimentosUsados.has(alimento.nombre)
+        );
+  
+        let requeridos = gruposRequeridos[grupo];
+  
+        if (grupo === "AOA" && grupoAlimentos.length > 0) {
+          // Para proteínas (AOA), preferir más de 1 equivalente
+          const index = Math.floor(Math.random() * grupoAlimentos.length);
+          const alimento = grupoAlimentos[index];
+          const minEquivalentes = 3; // Configuración para garantizar más de 1 equivalente
+          const cantidadProteina = minEquivalentes * alimento.equivalente;
+  
+          opcion.push(`${alimento.nombre} - ${cantidadProteina} ${alimento.unidad_medida}`);
+          alimentosUsados.add(alimento.nombre);
+          requeridos = 0; // Satisfacer la cantidad requerida de AOA
+        } else {
+          // Para otros grupos, asignar valores estándar
+          while (requeridos > 0 && grupoAlimentos.length > 0) {
+            const index = Math.floor(Math.random() * grupoAlimentos.length);
+            const alimento = grupoAlimentos[index];
+  
+            const cantidad = Math.min(requeridos, 1); // Para otros grupos, asignar 1 unidad
+            opcion.push(`${alimento.nombre} - ${cantidad} ${alimento.unidad_medida}`);
+            alimentosUsados.add(alimento.nombre);
+  
+            requeridos -= cantidad;
+            grupoAlimentos.splice(index, 1); // Remover alimento seleccionado
+          }
+        }
+      });
+  
+      opciones.push(opcion);
+    }
+  
+    return {
+      opcion1: opciones[0] || [],
+      opcion2: opciones[1] || [],
+      opcion3: opciones[2] || [],
+    };
+};  
+
+const calculateMacros = (tmb: number, objetivo: string): { calorias: number; proteinas: number; lipidos: number; carbohidratos: number } => {
+    let factorCalorias: number;
+  
+    switch (objetivo) {
+      case "Bajar de peso":
+        factorCalorias = 0.8; // 80% de TMB
+        break;
+      case "Mantenimiento":
+        factorCalorias = 1.0; // 100% de TMB
+        break;
+      case "Ganar masa muscular":
+        factorCalorias = 1.2; // 120% de TMB
+        break;
+      default:
+        throw new Error("Objetivo no válido");
+    }
+  
+    const calorias = tmb * factorCalorias;
+  
+    // Proporciones: 40% proteínas, 30% lípidos, 30% carbohidratos
+    return {
+      calorias,
+      proteinas: (calorias * 0.4) / 4, // gramos de proteínas
+      lipidos: (calorias * 0.3) / 9,  // gramos de lípidos
+      carbohidratos: (calorias * 0.3) / 4, // gramos de carbohidratos
+    };
+};
+
+const filterAlimentosByGrupoAndTiempoComida = (alimentos: Alimento[], grupo: string, tiempoComida: string): Alimento[] => {
+    return alimentos.filter(alimento => alimento.grupo === grupo && alimento.tiempo_comida.includes(tiempoComida));
+};
+  
+const generaPlanAlimenticio = (alimentos: Alimento[], cuadroDietosintetico: CuadroDietosintetico[]): PlanComida[] => {
+    const tiposComida = ["desayuno", "colacion", "comida", "colacion", "cena"];
+    const plan: PlanComida[] = [];
+
+    for (const tipo of tiposComida) {
+        const alimentosPorComida: Alimento[] = [];
+
+        cuadroDietosintetico.forEach(({ grupo, porciones }) => {
+        const alimentosFiltrados = filterAlimentosByGrupoAndTiempoComida(alimentos, grupo, tipo);
+        const seleccion = alimentosFiltrados.slice(0, porciones); // Selecciona los alimentos necesarios por grupo
+        alimentosPorComida.push(...seleccion);
+        });
+
+        plan.push({
+        tipo_comida: tipo,
+        alimentos: alimentosPorComida,
+        });
+    }
+
+    return plan;
+};
+
 
 function getPorcentajesDistribucionPorObjetivo( objetivo: string ){
 
@@ -924,6 +1165,7 @@ function calcularMacronutrientes(calorias: number, distribucion: { proteina: num
     return { proteina: proteinaGramos, lipidos: lipidosGramos, hco: hcoGramos };
   }
 
+  /*
 async function generarPlan( tmb:number, objetivo:string): Promise<void> {
     const caloriasDiarias = ajustarCaloriasPorObjetivo(tmb,objetivo);
     const distribucion = getPorcentajesDistribucionPorObjetivo( objetivo );
@@ -953,49 +1195,216 @@ async function generarPlan( tmb:number, objetivo:string): Promise<void> {
         });
     }
 }
+    */
 
-async function generarOpcionesParaComida(
-    comida: string,
+
+async function generarPlanAlimenticioMejorado(
+    totalCalorias: number,
+    objetivo: string
+  ): Promise<PlanAlimenticio> {
+    const distribucionMacronutrientes = getPorcentajesDistribucionPorObjetivo(objetivo);
+
+    console.log( "DISTRIBUCION" );
+    console.log( distribucionMacronutrientes );
+  
+    // Total de macronutrientes a partir de las calorías y los porcentajes
+    const totalProteinas = (totalCalorias * distribucionMacronutrientes.proteina) / 4;
+    const totalLipidos = (totalCalorias * distribucionMacronutrientes.lipidos) / 9;
+    const totalHco = (totalCalorias * distribucionMacronutrientes.hco) / 4;
+
+    console.log("Total gramos proteina: "+totalProteinas);
+    console.log("Total gramos lipidos: "+totalLipidos);
+    console.log("Total gramos hco: "+totalHco);
+  
+    // Macronutrientes asignados por comida
+    const macronutrientesPorComida = {
+      desayuno: {
+        proteina: totalProteinas * 0.25,
+        lipidos: totalLipidos * 0.25,
+        hco: totalHco * 0.25,
+      },
+      colacion: {
+        proteina: totalProteinas * 0.10,
+        lipidos: totalLipidos * 0.10,
+        hco: totalHco * 0.10,
+      },
+      comida: {
+        proteina: totalProteinas * 0.35,
+        lipidos: totalLipidos * 0.35,
+        hco: totalHco * 0.35,
+      },
+      cena: {
+        proteina: totalProteinas * 0.20,
+        lipidos: totalLipidos * 0.20,
+        hco: totalHco * 0.20,
+      },
+    };
+  
+    // Grupos de alimentos para cada comida
+    const gruposPorComida = {
+      desayuno: ['Frutas', 'Verduras','Cereales', 'Leche baja en grasa','AOA bajo en grasa','AOA muy bajo en grasa','AOA moderado en grasa', 'Grasa sin proteína'],
+      colacion: ['Frutas', 'Alimentos libres de energía', 'Verduras','Grasa sin proteína'],
+      comida: ['Verduras', 'Cereales', 'Leguminosas', 'AOA muy bajo en grasa', 'AOA bajo en grasa', 'AOA moderado en grasa'],
+      cena: ['Verduras', 'Cereales', 'Grasa sin proteína', 'AOA muy bajo en grasa', 'AOA bajo en grasa', 'AOA moderado en grasa'],
+    };
+  
+    const desayuno = await generarOpcionesParaComida(
+      'desayuno',
+      gruposPorComida.desayuno,
+      macronutrientesPorComida.desayuno
+    );
+  
+    const colacion1 = await generarOpcionesParaComida(
+      'colacion',
+      gruposPorComida.colacion,
+      macronutrientesPorComida.colacion
+    );
+  
+    const comida = await generarOpcionesParaComida(
+      'comida',
+      gruposPorComida.comida,
+      macronutrientesPorComida.comida
+    );
+  
+    const colacion2 = await generarOpcionesParaComida(
+      'colacion',
+      gruposPorComida.colacion,
+      macronutrientesPorComida.colacion
+    );
+  
+    const cena = await generarOpcionesParaComida(
+      'cena',
+      gruposPorComida.cena,
+      macronutrientesPorComida.cena
+    );
+  
+    return { desayuno, colacion1, comida, colacion2, cena };
+  }
+
+  async function generarOpcionesParaComida(
+    comida: TiempoComida,
     grupos: string[],
     macronutrientesRestantes: { proteina: number; lipidos: number; hco: number }
   ): Promise<Alimento[][]> {
     const opciones: Alimento[][] = [];
-    
+    const maxAlimentosPorOpcion = 4; // Máximo de alimentos por opción
+    const tiemposPermitidos: Record<TiempoComida, string> = {
+      desayuno: "desayuno",
+      colacion: "colacion",
+      comida: "comida",
+      cena: "cena",
+    };
+  
+    // Grupos restringidos (AOA)
+    const gruposRestringidos = [
+      "AOA muy bajo en grasa",
+      "AOA bajo en grasa",
+      "AOA moderado en grasa",
+    ];
+  
+    // Filtrar alimentos por el tiempo_comida correspondiente
+    const alimentosDisponibles = await NuevoAlimento.findAll({
+      where: {
+        tiempo_comida: { [Op.like]: `%${tiemposPermitidos[comida]}%` },
+      },
+      order: [["nombre", "ASC"]],
+    });
+  
+    const alimentosConvertidos: Alimento[] = alimentosDisponibles.map((alimento: any) => ({
+      id: alimento.id,
+      nombre: alimento.nombre,
+      grupo: alimento.grupo,
+      equivalente: alimento.equivalente,
+      unidad_medida: alimento.unidad_medida,
+      proteinas: parseFloat(alimento.proteinas),
+      lipidos: parseFloat(alimento.lipidos),
+      hco: parseFloat(alimento.hco),
+      kcal: parseFloat(alimento.kcal),
+      tiempo_comida: alimento.tiempo_comida,
+      categoria: alimento.categoria,
+    }));
+  
+    // Generar las opciones
     for (let i = 0; i < 3; i++) { // Tres opciones por comida
       const opcion: Alimento[] = [];
-      for (const grupo of grupos) {
-        const alimentosPorGrupo = await NuevoAlimento.findAll({
-          where: { grupo },
-          order: [['nombre', 'ASC']],
-        });
+      const gruposSeleccionados = [...grupos];
+      const gruposUsados: Set<string> = new Set(); // Para rastrear los grupos restringidos en cada opción
+      let intentos = 0;
   
-        const alimentosConvertidos: Alimento[] = alimentosPorGrupo.map((alimento: any) => ({
-          id: alimento.id,
-          nombre: alimento.nombre,
-          grupo: alimento.grupo,
-          equivalente: alimento.equivalente,
-          unidad_medida: alimento.unidad_medida,
-          proteinas: parseFloat(alimento.proteinas),
-          lipidos: parseFloat(alimento.lipidos),
-          hco: parseFloat(alimento.hco),
-          kcal: parseFloat(alimento.kcal),
-        }));
+      while (
+        opcion.length < maxAlimentosPorOpcion &&
+        (macronutrientesRestantes.proteina > 0 ||
+          macronutrientesRestantes.lipidos > 0 ||
+          macronutrientesRestantes.hco > 0) &&
+        intentos < 100
+      ) {
+        intentos++;
+        if (gruposSeleccionados.length === 0) break;
   
-        if (alimentosConvertidos.length > 0) {
+        const grupoAleatorio =
+          gruposSeleccionados[Math.floor(Math.random() * gruposSeleccionados.length)];
+        const alimentosPorGrupo = alimentosConvertidos.filter(
+          (alimento) => alimento.grupo === grupoAleatorio
+        );
+  
+        if (alimentosPorGrupo.length > 0) {
           const alimentoAleatorio =
-            alimentosConvertidos[Math.floor(Math.random() * alimentosConvertidos.length)];
-          opcion.push(alimentoAleatorio);
+            alimentosPorGrupo[Math.floor(Math.random() * alimentosPorGrupo.length)];
   
-          // Actualizar los macronutrientes restantes
-          macronutrientesRestantes.proteina -= alimentoAleatorio.proteinas;
-          macronutrientesRestantes.lipidos -= alimentoAleatorio.lipidos;
-          macronutrientesRestantes.hco -= alimentoAleatorio.hco;
+          // Restricción: verificar que el grupo no esté repetido si pertenece a los restringidos
+          if (
+            gruposRestringidos.includes(alimentoAleatorio.grupo) &&
+            gruposUsados.has(alimentoAleatorio.grupo)
+          ) {
+            continue; // Saltar este alimento si ya hay uno del mismo grupo
+          }
+  
+          // Validar si los macronutrientes son suficientes
+          if (
+            alimentoAleatorio.proteinas <= macronutrientesRestantes.proteina &&
+            alimentoAleatorio.lipidos <= macronutrientesRestantes.lipidos &&
+            alimentoAleatorio.hco <= macronutrientesRestantes.hco
+          ) {
+            opcion.push(alimentoAleatorio);
+  
+            // Registrar el grupo si es restringido
+            if (gruposRestringidos.includes(alimentoAleatorio.grupo)) {
+              gruposUsados.add(alimentoAleatorio.grupo);
+            }
+  
+            // Descontar macronutrientes
+            macronutrientesRestantes.proteina -= alimentoAleatorio.proteinas;
+            macronutrientesRestantes.lipidos -= alimentoAleatorio.lipidos;
+            macronutrientesRestantes.hco -= alimentoAleatorio.hco;
+          }
+        }
+  
+        const index = gruposSeleccionados.indexOf(grupoAleatorio);
+        if (index !== -1) gruposSeleccionados.splice(index, 1);
+      }
+  
+      // Si la opción está incompleta, rellenarla con alimentos aleatorios sin romper restricciones
+      while (opcion.length < maxAlimentosPorOpcion) {
+        const alimentoAleatorio =
+          alimentosConvertidos[Math.floor(Math.random() * alimentosConvertidos.length)];
+  
+        if (
+          !opcion.includes(alimentoAleatorio) &&
+          (!gruposRestringidos.includes(alimentoAleatorio.grupo) || 
+           !gruposUsados.has(alimentoAleatorio.grupo))
+        ) {
+          opcion.push(alimentoAleatorio);
+          if (gruposRestringidos.includes(alimentoAleatorio.grupo)) {
+            gruposUsados.add(alimentoAleatorio.grupo);
+          }
         }
       }
+  
       opciones.push(opcion);
     }
   
     return opciones;
-}
+  }
   
-
+  
+  
