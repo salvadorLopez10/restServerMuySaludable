@@ -3,6 +3,8 @@ import NuevoAlimento from "../models/nuevos_alimentos";
 
 export const getAlimentos = async (req: Request, res: Response) => {
   const alimentos = await NuevoAlimento.findAll({
+     //attributes:["nombre","grupo"],
+    
       order: [
         ['nombre', 'ASC'] // Ordenar alfabéticamente por nombre en orden ascendente
       ]

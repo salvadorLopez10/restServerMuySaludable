@@ -3,6 +3,7 @@ import Usuario from '../models/usuario';
 import { QueryTypes, Sequelize, json, Op } from "sequelize";
 import db from "../db/connection";
 import { Ingredient, JSONResponse, Meal, MealGroup, MealPlan, TipoComida } from "./interfaces";
+import OpenAI from "openai";
 import NuevoAlimento from "../models/nuevos_alimentos";
 
 type Alimento = {
@@ -17,8 +18,6 @@ type Alimento = {
     kcal: number;
     tiempo_comida: string;
     categoria: string;
-    createdAt: string;
-    updatedAt: string;
 };
   
 type OpcionTiempoComida = {
@@ -900,38 +899,120 @@ export const generateMealPlanNew = async(req: Request, res: Response) => {
     try {
         const { tipo_dieta, alimentos_evitar, objetivo, tmb } = req.body;
 
-        if (!objetivo || !tmb) {
-            return res.status(400).json({ success: false, message: "Faltan parámetros requeridos: objetivo y/o tmb" });
+        if (!objetivo || !tmb || !tipo_dieta) {
+            return res.status(400).json({ success: false, message: "Faltan parámetros requeridos: objetivo, tmb y/o tipo_dieta" });
         }
+
+        // Validar el objetivo y obtener los porcentajes
+       
+        let distribucion = getPorcentajesDistribucionPorObjetivo(objetivo);
+       
 
         // Obtener la lista de alimentos
         const alimentosRaw = await NuevoAlimento.findAll({
             order: [["nombre", "ASC"]],
         });
+        
         const alimentos: Alimento[] = alimentosRaw.map((alimento) => alimento.toJSON()) as Alimento[];
-  
-        // Distribución calórica según el objetivo
-        const caloriasObjetivo = calcularCaloriasPorObjetivo(tmb, objetivo);
-        console.log("TMB: "+tmb)
-        console.log("Calorias objetivo: "+caloriasObjetivo)
-        const distribucionCalorica = calcularDistribucionCalorica(caloriasObjetivo);
 
-        // Calcular cuadro dietosintético
-        const cuadroDietosintetico = calcularCuadroDietosintetico(alimentos, distribucionCalorica);
+        // Preparar la lista de alimentos en formato detallado
+        const alimentosList = alimentos
+            .map((alimento) =>{
+                //console.log(alimento);
+                const unidad = alimento.unidad_medida == "pz" ? "pieza" : alimento.unidad_medida;
+                //console.log(unidad);
+                //console.log(`- ${alimento.nombre}, equivalente ${alimento.equivalente} (${unidad}): ${alimento.kcal} kcal, ${alimento.proteinas}g proteínas, ${alimento.lipidos}g lípidos, ${alimento.hco}g carbohidratos. Grupo: ${alimento.grupo}.`);
+                return `- ${alimento.nombre}, equivalente ${alimento.equivalente} (${unidad}): ${alimento.kcal} kcal, ${alimento.proteinas}g proteínas, ${alimento.lipidos}g lípidos, ${alimento.hco}g carbohidratos. Grupo: ${alimento.grupo}.`
+            }).join("\n");
 
-        // Filtrar alimentos según el tipo de dieta y alimentos a evitar
-        const alimentosFiltrados = alimentos.filter((alimento) =>
-            validarAlimento(alimento, tipo_dieta, alimentos_evitar)
-        );
+        
+        // Secciones a generar
+        const sections = ["Detox", "Mes1", "Mes2"];
+        const completePlan: any = {};
 
-        // Generar el plan alimenticio
-        const plan = generarPlan(alimentosFiltrados, cuadroDietosintetico);
+        // Configurar OpenAI
+        console.log(process.env.OPENAI_API_KEY);
+        const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+        });
 
-        return res.status(200).json({
-            status:"Ok",
-            msg: "Plan generado ",
-            //data: arrayComidasFormat
-            data: plan
+        for (const section of sections) {
+            const prompt = `
+Genera la sección "${section}" de un plan alimenticio para una persona que tiene las siguientes características:
+- Objetivo: ${objetivo}
+- Tasa metabólica basal: ${tmb} kcal
+- Tipo de dieta: ${tipo_dieta}
+- Alimentos a evitar: ${alimentos_evitar}
+
+La distribución de macronutrientes debe ser la siguiente:
+- Proteínas: ${(distribucion.proteina * 100).toFixed(0)}% del total
+- Lípidos: ${(distribucion.lipidos * 100).toFixed(0)}% del total
+- Carbohidratos: ${(distribucion.hco * 100).toFixed(0)}% del total
+
+Cada tipo de comida debe contener 3 opciones además que, cada opción de comida debe incluir:
+- Un **nombre** del platillo.
+- Una lista de **ingredientes** con el siguiente detalle:
+  - nombre: Nombre del ingrediente.
+  - porcion: Cantidad específica de ese ingrediente en unidades, gramos, piezas, o tazas según corresponda.
+
+Tomar en cuenta los siguientes alimentos:
+${alimentosList}
+
+En caso de que se considere necesario, agregar alimentos para generar comidas más variadas, ya que para los planes veganos no se cuenta con un número adecuado de alimentos que puedan funcionar para la generación de planes variados.
+Considerar que las comidas no se deben repetir en las opciones y en el plan generado entre Detox, Mes1 y Mes2.
+
+Responde solo en formato JSON con la estructura:
+{
+    "${section}": {
+        "Desayuno": {
+            "Opcion 1": { "nombre": "...", "ingredientes": [...] },
+            "Opcion 2": { "nombre": "...", "ingredientes": [...] },
+            "Opcion 3": { "nombre": "...", "ingredientes": [...] },
+            ...
+        },
+        "Comida": { ... },
+        "Cena": { ... },
+        "Colación": { ... }
+    }
+}`;
+            console.log("GENERANDO SECCIÓN: "+section);
+            // Hacer la solicitud a la API de OpenAI
+            const response = await openai.chat.completions.create({
+                model: "gpt-3.5-turbo",
+                messages: [{ role: "user", content: prompt }],
+                max_tokens: 3000,
+                temperature: 0.7,
+            });
+
+            const planSection = response.choices[0].message?.content;
+
+            if (!planSection) {
+                throw new Error(`No se recibió respuesta para la sección ${section}.`);
+            }
+
+            // Agregar la sección al plan completo
+            completePlan[section] = JSON.parse(planSection)?.[section];
+
+        }
+               
+
+
+        // Crear el prompt dinámico para ChatGPT
+        //const alimentosList = alimentos.map((alimento) => `- ${alimento.nombre}`).join("\n");
+        //console.log("LISTA DE ALIMENTOS");
+        //console.log(alimentosList);
+
+
+        console.log("EL PLAN GENERADO POR GPT");
+        console.log(JSON.stringify(completePlan,null,2));
+    
+
+        // Devolver el plan generado
+        res.status(200).json({
+            status: "Ok",
+            msg: "Plan generado",
+            //data: JSON.parse(plan || "{}"),
+            data: completePlan
         });
 
     } catch (error:any) {
@@ -973,29 +1054,50 @@ const calcularDistribucionCalorica = (calorias: number) => {
 const calcularCuadroDietosintetico = (alimentos: Alimento[], distribucionCalorica: any): CuadroDietosintetico => {
     const cuadro: CuadroDietosintetico = {};
   
-    alimentos.forEach((alimento) => {
-      if (distribucionCalorica.carbohidratos >= 0 && alimento.hco > 0) {
-        cuadro[alimento.grupo] = (cuadro[alimento.grupo] || 0) + 1;
-        distribucionCalorica.carbohidratos -= alimento.hco;
-      }
-      if (distribucionCalorica.proteinas >= 0 && alimento.proteinas > 0) {
-        cuadro[alimento.grupo] = (cuadro[alimento.grupo] || 0) + 1;
-        distribucionCalorica.proteinas -= alimento.proteinas;
-      }
-      if (distribucionCalorica.grasas >= 0 && alimento.lipidos > 0) {
-        cuadro[alimento.grupo] = (cuadro[alimento.grupo] || 0) + 1;
-        distribucionCalorica.grasas -= alimento.lipidos;
+    // Definir prioridades
+    const gruposPrioritarios = ["Verduras", "Frutas", "AOA"] as const;
+  
+    // Configurar rangos de equivalentes para cada grupo
+    const rangosEquivalentes: Record<typeof gruposPrioritarios[number], { min: number; max: number }> = {
+      Verduras: { min: 3, max: 5 },
+      Frutas: { min: 1, max: 2 },
+      AOA: { min: 1, max: 4 }, // Ajustar según necesidades de proteínas
+    };
+  
+    // Recorrer cada grupo prioritario
+    gruposPrioritarios.forEach((grupo) => {
+      const alimentosGrupo = alimentos.filter((alimento) => alimento.grupo.startsWith(grupo));
+      let requeridos = rangosEquivalentes[grupo].min; // Ahora TypeScript sabe que "grupo" es válido
+  
+      // Asignar equivalentes dentro del rango permitido
+      while (requeridos > 0 && alimentosGrupo.length > 0) {
+        const alimento = alimentosGrupo.shift(); // Tomar el primer alimento del grupo
+        if (!alimento) break;
+  
+        const cantidadEquivalentes = Math.min(
+          requeridos,
+          Math.floor(distribucionCalorica.proteinas / alimento.proteinas) || 0
+        );
+  
+        cuadro[grupo] = (cuadro[grupo] || 0) + cantidadEquivalentes;
+        distribucionCalorica.proteinas -= cantidadEquivalentes * alimento.proteinas;
+  
+        requeridos -= cantidadEquivalentes;
       }
     });
 
-    console.log(JSON.stringify(cuadro, null, 2));
+    console.log("cuadro")
+    console.log(JSON.stringify(cuadro,null,2))
   
+    // Retornar solo los grupos prioritarios con sus equivalentes asignados
     return cuadro;
 };
   
+  
+  
 // Validar alimentos según tipo de dieta y restricciones
 const validarAlimento = (alimento: Alimento, tipo_dieta: string, alimentos_evitar: string[]): boolean => {
-    if (alimentos_evitar.includes(alimento.nombre)) return false;
+    if (alimentos_evitar.includes(alimento.nombre.trim())) return false;
     if (tipo_dieta === "Vegetariana" && alimento.grupo.startsWith("AOA")) return false;
     return true;
 };
@@ -1116,27 +1218,6 @@ const filterAlimentosByGrupoAndTiempoComida = (alimentos: Alimento[], grupo: str
     return alimentos.filter(alimento => alimento.grupo === grupo && alimento.tiempo_comida.includes(tiempoComida));
 };
   
-const generaPlanAlimenticio = (alimentos: Alimento[], cuadroDietosintetico: CuadroDietosintetico[]): PlanComida[] => {
-    const tiposComida = ["desayuno", "colacion", "comida", "colacion", "cena"];
-    const plan: PlanComida[] = [];
-
-    for (const tipo of tiposComida) {
-        const alimentosPorComida: Alimento[] = [];
-
-        cuadroDietosintetico.forEach(({ grupo, porciones }) => {
-        const alimentosFiltrados = filterAlimentosByGrupoAndTiempoComida(alimentos, grupo, tipo);
-        const seleccion = alimentosFiltrados.slice(0, porciones); // Selecciona los alimentos necesarios por grupo
-        alimentosPorComida.push(...seleccion);
-        });
-
-        plan.push({
-        tipo_comida: tipo,
-        alimentos: alimentosPorComida,
-        });
-    }
-
-    return plan;
-};
 
 
 function getPorcentajesDistribucionPorObjetivo( objetivo: string ){
@@ -1196,90 +1277,6 @@ async function generarPlan( tmb:number, objetivo:string): Promise<void> {
     }
 }
     */
-
-
-async function generarPlanAlimenticioMejorado(
-    totalCalorias: number,
-    objetivo: string
-  ): Promise<PlanAlimenticio> {
-    const distribucionMacronutrientes = getPorcentajesDistribucionPorObjetivo(objetivo);
-
-    console.log( "DISTRIBUCION" );
-    console.log( distribucionMacronutrientes );
-  
-    // Total de macronutrientes a partir de las calorías y los porcentajes
-    const totalProteinas = (totalCalorias * distribucionMacronutrientes.proteina) / 4;
-    const totalLipidos = (totalCalorias * distribucionMacronutrientes.lipidos) / 9;
-    const totalHco = (totalCalorias * distribucionMacronutrientes.hco) / 4;
-
-    console.log("Total gramos proteina: "+totalProteinas);
-    console.log("Total gramos lipidos: "+totalLipidos);
-    console.log("Total gramos hco: "+totalHco);
-  
-    // Macronutrientes asignados por comida
-    const macronutrientesPorComida = {
-      desayuno: {
-        proteina: totalProteinas * 0.25,
-        lipidos: totalLipidos * 0.25,
-        hco: totalHco * 0.25,
-      },
-      colacion: {
-        proteina: totalProteinas * 0.10,
-        lipidos: totalLipidos * 0.10,
-        hco: totalHco * 0.10,
-      },
-      comida: {
-        proteina: totalProteinas * 0.35,
-        lipidos: totalLipidos * 0.35,
-        hco: totalHco * 0.35,
-      },
-      cena: {
-        proteina: totalProteinas * 0.20,
-        lipidos: totalLipidos * 0.20,
-        hco: totalHco * 0.20,
-      },
-    };
-  
-    // Grupos de alimentos para cada comida
-    const gruposPorComida = {
-      desayuno: ['Frutas', 'Verduras','Cereales', 'Leche baja en grasa','AOA bajo en grasa','AOA muy bajo en grasa','AOA moderado en grasa', 'Grasa sin proteína'],
-      colacion: ['Frutas', 'Alimentos libres de energía', 'Verduras','Grasa sin proteína'],
-      comida: ['Verduras', 'Cereales', 'Leguminosas', 'AOA muy bajo en grasa', 'AOA bajo en grasa', 'AOA moderado en grasa'],
-      cena: ['Verduras', 'Cereales', 'Grasa sin proteína', 'AOA muy bajo en grasa', 'AOA bajo en grasa', 'AOA moderado en grasa'],
-    };
-  
-    const desayuno = await generarOpcionesParaComida(
-      'desayuno',
-      gruposPorComida.desayuno,
-      macronutrientesPorComida.desayuno
-    );
-  
-    const colacion1 = await generarOpcionesParaComida(
-      'colacion',
-      gruposPorComida.colacion,
-      macronutrientesPorComida.colacion
-    );
-  
-    const comida = await generarOpcionesParaComida(
-      'comida',
-      gruposPorComida.comida,
-      macronutrientesPorComida.comida
-    );
-  
-    const colacion2 = await generarOpcionesParaComida(
-      'colacion',
-      gruposPorComida.colacion,
-      macronutrientesPorComida.colacion
-    );
-  
-    const cena = await generarOpcionesParaComida(
-      'cena',
-      gruposPorComida.cena,
-      macronutrientesPorComida.cena
-    );
-  
-    return { desayuno, colacion1, comida, colacion2, cena };
-  }
 
   async function generarOpcionesParaComida(
     comida: TiempoComida,
