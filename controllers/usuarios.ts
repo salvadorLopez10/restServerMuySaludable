@@ -94,10 +94,14 @@ export const postUsuario = async (req: Request, res: Response) => {
             });
         }
 
-        const usuario = await Usuario.create({
+        const usuarioData: Partial<{ email: string; password?: string }> = {
             email: body.email,
-            //password: body.password
-        });
+        };
+
+        if( body.password ){
+            usuarioData.password = body.password;
+        }
+        const usuario = await Usuario.create( usuarioData );
 
         res.status(200).json({
             status: `Ok`,
@@ -250,12 +254,21 @@ export const login = async (req: Request, res: Response) => {
             }
 
             const infoComplete = await getInfoUserWithPlan(existeUsuario.get('id'))
+            
+            if( infoComplete !== null ){
+                return res.status(200).json({
+                    status:"Ok",
+                    msg: "Login correcto",
+                    data: (infoComplete) ? infoComplete[0]: "",
+                });
+            }else{
+                return res.status(200).json({
+                    status:"Ok",
+                    msg: "Sin suscripcion",
+                    data: body.email,
+                });
+            }
 
-            return res.status(200).json({
-                status:"Ok",
-                msg: "Login correcto",
-                data: (infoComplete) ? infoComplete[0]: "",
-            });
 
         }else{
 
@@ -346,7 +359,11 @@ const getInfoUserWithPlan = async(userId:unknown) => {
 
     console.log(JSON.stringify(queryResult))
 
-    return queryResult;
+    if( queryResult.length > 0 ){
+        return queryResult;
+    }else{
+        return null;
+    }
 
   } catch (error) {
     console.error('Error al ejecutar el query:', error);

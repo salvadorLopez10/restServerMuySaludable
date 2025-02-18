@@ -26,8 +26,8 @@ export const sendEmail = async (req: Request, res: Response) => {
            port: 465,
            secure: true, // true para usar SSL
            auth: {
-               user: 'daniel@muysaludable.com.mx',
-               pass: 'Felixelgato1234$',
+               user: process.env.EMAIL_SENDER,
+               pass: process.env.PWD_EMAIL,
            },
        });
 
@@ -201,5 +201,339 @@ export const sendEmail = async (req: Request, res: Response) => {
    
 
 };
+
+export const sendWelcomeEmailOnlyUser = async ( req: Request, res: Response ) => {
+
+    const { body } = req;
+
+    const email = body.email;
+
+    const transporter = nodemailer.createTransport({
+        host: 'smtpout.secureserver.net',
+        port: 465,
+        secure: true, // true para usar SSL
+        auth: {
+            user: process.env.EMAIL_SENDER,
+            pass: process.env.PWD_EMAIL,
+        },
+    });
+
+    const mailOptions = {
+        from: '"Muy Saludable" <no-reply@muysaludable.com.mx>',
+        to: email, // Dirección del destinatario
+        subject: `¡Tu camino hacia el bienestar comienza hoy! `,
+        html: `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Email Template</title>
+            <style>
+                body {
+                    background-color: #f0f0f0; /* Fondo gris tenue */
+                    margin: 0;
+                    padding: 0;
+                    font-family: Arial, sans-serif;
+                }
+                .container {
+                    max-width: 90%;
+                    background-color: #ffffff; /* Contenedor blanco */
+                    margin: 50px auto; /* Centrado horizontal */
+                    padding: 20px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                    border-radius: 10px;
+                    text-align: center; /* Centrar el contenido */
+                }
+                .container img {
+                    max-width: 100px;
+                }
+                .container h1 {
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container h3 {
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container h2 {
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container ul {
+                     list-style-type: disc; /* Viñetas */
+                     list-style-position: inside; /* Alineación correcta de viñetas */
+                     text-align: left; /* Alineación del texto de la lista a la izquierda */
+                     padding-left: 0; /* Sin margen adicional en la izquierda */
+                     font-size: 16px;
+                     color: #000000; /* Texto negro */
+                     margin-left: 20%; /* Margen izquierdo para alinear bien con el centro */
+                     margin-right: 20%; /* Margen derecho */
+                 }
+                 .container ul li {
+                     margin-bottom: 10px;
+                 }
+        
+                .container .price {
+                    font-size: 16px;
+                    color: #326807;
+                    margin-top: 20px;
+                }
+                .container .price .original-price {
+                    text-decoration: line-through;
+                    margin-right: 5px;
+                }
+                .btn-click {
+                    display: inline-block;
+                    margin-top: 30px;
+                    padding: 10px 20px;
+                    background-color: #F9A02A;
+                    color: #ffffff;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    font-size: 16px;
+                }
+                .divider {
+                    border-top: 1px solid #cccccc;
+                    margin: 40px 0;
+                }
+                .footer-text {
+                    font-size: 12px;
+                    color: #999999;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <!-- Imagen centrada -->
+                <!-- <img src="https://muysaludable.com.mx/wp-content/uploads/2020/08/cropped-Logo-Muy-Saludable-2-99x103.png" alt="Logo Muy Saludable"> -->
+                <img src="https://muysaludable.com.mx/img-site/logoMuySaludableMR.png" width="99" height="103" alt="Logo Muy Saludable">
+
+                <!-- Texto principal -->
+                <h1>¡Bienvenido a Muy Saludable!</h1>
+                <h2>Nos emociona acompañarte en este viaje hacia una vida más saludable y equilibrada. Aquí encontrarás todo lo que necesitas para mejorar tu alimentación, fortalecer tu cuerpo, cuidar tu bienestar emocional y potenciar tu salud financiera.</h2>
+                <h2>💡 ¿Qué encontrarás en Muy Saludable?</h2>
+
+                <ul>
+                    <li> 🍏 Planes de alimentación adaptados a tu estilo de vida.</li>
+                    <li> 🏋️ Rutinas de ejercicio para mantenerte en movimiento.</li>
+                    <li> 🧘 Consejos de salud mental y emocional para sentirte en equilibrio.</li>
+                    <li> 💰 Tips y consejos financieros que impulsarán tu crecimiento.</li>
+                </ul>
+
+                <h2>📍 Da el primer paso hoy mismo y descubre todo lo que tenemos para ti.</h2>
+                
+                <!-- Link para continuar registro -->
+                <a href="https://muysaludable.com.mx/planes" class="btn-click" target="_blank">Explora Muy Saludable aquí</a>
+
+                <!-- Línea divisoria -->
+                <div class="divider"></div>
+
+                <!-- Texto de pie -->
+                <p class="footer-text">
+                    Muy Saludable te envió este mensaje a ${email} porque creaste una cuenta.
+                </p>
+                <p class="footer-text">
+                    Si tienes dudas o necesitas ayuda, contáctanos vía WhatsApp 55 6528 2789 o escríbenos a danna@muysaludable.com.mx.
+                </p>
+            </div>
+        </body>
+        </html>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log("EL CORREO SE HA ENVIADO A: " + email);
+
+        console.log(JSON.stringify( info,null,3 ));
+
+        res.status(200).json({
+            status: `Ok`,
+            msg: "El correo se ha enviado correctamente",
+            data: "Correo enviado"
+        });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            status: "Error",
+            msg: "Error: Contacte al administrador",
+            data: error
+        });
+    }
+}
+
+export const sendEmailRenew = async ( req: Request, res: Response ) => {
+
+    const { body } = req;
+
+    const email = body.email;
+
+    const transporter = nodemailer.createTransport({
+        host: 'smtpout.secureserver.net',
+        port: 465,
+        secure: true, // true para usar SSL
+        auth: {
+            user: process.env.EMAIL_SENDER,
+            pass: process.env.PWD_EMAIL,
+        },
+    });
+
+    const mailOptions = {
+        from: '"Muy Saludable" <no-reply@muysaludable.com.mx>',
+        to: email, // Dirección del destinatario
+        subject: `¡Tu bienestar no tiene por qué detenerse! `,
+        html: `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Email Template</title>
+            <style>
+                body {
+                    background-color: #f0f0f0; /* Fondo gris tenue */
+                    margin: 0;
+                    padding: 0;
+                    font-family: Arial, sans-serif;
+                }
+                .container {
+                    max-width: 90%;
+                    background-color: #ffffff; /* Contenedor blanco */
+                    margin: 50px auto; /* Centrado horizontal */
+                    padding: 20px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                    border-radius: 10px;
+                    text-align: center; /* Centrar el contenido */
+                }
+                .container img {
+                    max-width: 100px;
+                }
+                .container h1 {
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container h3 {
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container h2 {
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container ul {
+                     list-style-type: disc; /* Viñetas */
+                     list-style-position: inside; /* Alineación correcta de viñetas */
+                     text-align: left; /* Alineación del texto de la lista a la izquierda */
+                     padding-left: 0; /* Sin margen adicional en la izquierda */
+                     font-size: 16px;
+                     color: #000000; /* Texto negro */
+                     margin-left: 20%; /* Margen izquierdo para alinear bien con el centro */
+                     margin-right: 20%; /* Margen derecho */
+                 }
+                 .container ul li {
+                     margin-bottom: 10px;
+                 }
+        
+                .container .price {
+                    font-size: 16px;
+                    color: #326807;
+                    margin-top: 20px;
+                }
+                .container .price .original-price {
+                    text-decoration: line-through;
+                    margin-right: 5px;
+                }
+                .btn-click {
+                    display: inline-block;
+                    margin-top: 30px;
+                    padding: 10px 20px;
+                    background-color: #F9A02A;
+                    color: #ffffff;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    font-size: 16px;
+                }
+                .divider {
+                    border-top: 1px solid #cccccc;
+                    margin: 40px 0;
+                }
+                .footer-text {
+                    font-size: 12px;
+                    color: #999999;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <!-- Imagen centrada -->
+                <!-- <img src="https://muysaludable.com.mx/wp-content/uploads/2020/08/cropped-Logo-Muy-Saludable-2-99x103.png" alt="Logo Muy Saludable"> -->
+                <img src="https://muysaludable.com.mx/img-site/logoMuySaludableMR.png" width="99" height="103" alt="Logo Muy Saludable">
+
+                <!-- Texto principal -->
+                <h1>¡Queremos verte de vuelta en Muy Saludable!</h1>
+                <h2>Tu membresía ha expirado, pero aún puedes retomar tu camino hacia una alimentación equilibrada, un cuerpo fuerte y una mente en armonía.</h2>
+                <h2>💡 Sigue disfrutando de: </h2>
+
+                <ul>
+                    <li> 🍏 Planes de alimentación adaptados a tu estilo de vida.</li>
+                    <li> 🏋️ Rutinas de ejercicio para mantenerte en movimiento.</li>
+                    <li> 🧘 Consejos de salud mental y emocional para sentirte en equilibrio.</li>
+                    <li> 💰 Tips y consejos financieros que impulsarán tu crecimiento.</li>
+                </ul>
+
+                <h2>📍 Renueva tu acceso y continúa con tu transformación saludable. ¡Estamos listos para acompañarte!</h2>
+                
+                <!-- Link para continuar registro -->
+                <a href="https://muysaludable.com.mx/planes" class="btn-click" target="_blank">Explora Muy Saludable aquí</a>
+
+                <!-- Línea divisoria -->
+                <div class="divider"></div>
+
+                <!-- Texto de pie -->
+                <p class="footer-text">
+                    Muy Saludable te envió este mensaje a ${email} porque creaste una cuenta.
+                </p>
+                <p class="footer-text">
+                    Si tienes dudas o necesitas ayuda, contáctanos vía WhatsApp 55 6528 2789 o escríbenos a danna@muysaludable.com.mx.
+                </p>
+            </div>
+        </body>
+        </html>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log("EL CORREO SE HA ENVIADO A: " + email);
+
+        console.log(JSON.stringify( info,null,3 ));
+
+        res.status(200).json({
+            status: `Ok`,
+            msg: "El correo se ha enviado correctamente",
+            data: "Correo enviado"
+        });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            status: "Error",
+            msg: "Error: Contacte al administrador",
+            data: error
+        });
+    }
+}
 
 
