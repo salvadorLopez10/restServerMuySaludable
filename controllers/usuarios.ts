@@ -79,7 +79,6 @@ export const postUsuario = async (req: Request, res: Response) => {
     const { body } = req;
 
     try {
-
         const existeEmail = await Usuario.findOne({
             where: {
                 email: body.email
@@ -90,9 +89,10 @@ export const postUsuario = async (req: Request, res: Response) => {
             return res.status(200).json({
                 status:"Duplicate",
                 msg: "Ya existe un usuario con el email "+ body.email,
-                data: "",
+                data: existeEmail,
             });
         }
+        
 
         const usuarioData: Partial<{ email: string; password?: string }> = {
             email: body.email,
