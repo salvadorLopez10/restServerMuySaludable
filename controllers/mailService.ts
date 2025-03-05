@@ -330,7 +330,7 @@ export const sendWelcomeEmailOnlyUser = async ( req: Request, res: Response ) =>
                 <h2>📍 Da el primer paso hoy mismo y descubre todo lo que tenemos para ti.</h2>
                 
                 <!-- Link para continuar registro -->
-                <a href="https://muysaludable.com.mx/planes" class="btn-click" target="_blank">Explora Muy Saludable aquí</a>
+                <a href="https://muysaludable.com.mx/planes?email=${email}" class="btn-click" target="_blank">Explora Muy Saludable aquí</a>
 
                 <!-- Línea divisoria -->
                 <div class="divider"></div>
