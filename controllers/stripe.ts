@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
+const dotenv = require('dotenv');
+dotenv.config();
 const Stripe = require('stripe');
-const stripe = new Stripe("sk_test_51Oq6azDzbFBwqYhAO01PwHyNpNDXHQqa5Jt5u8ZZyFPd2FP0FvbMwO4PQ6VFs4UmeD1K70dkiKZvipkJ2NhmSmcY00ecKMOkH8");
+const stripe = new Stripe( process.env.STRIPE_SECRET_KEY );
 
 export const createPayment = async (req: Request, res: Response) => {
   const data = req.body;
