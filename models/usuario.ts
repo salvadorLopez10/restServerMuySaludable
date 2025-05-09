@@ -8,8 +8,14 @@ const Usuario = db.define('usuario',{
     email: {
         type: DataTypes.STRING
     },
-
+    telefono: {
+        type: DataTypes.STRING
+    },
     password: {
+        type: DataTypes.STRING
+    },
+
+    fecha_nacimiento: {
         type: DataTypes.STRING
     },
 
@@ -34,7 +40,13 @@ const Usuario = db.define('usuario',{
     alimentos_evitar: {
         type: DataTypes.STRING
     },
+    alimentos_preferencia: {
+        type: DataTypes.STRING
+    },
     objetivo: {
+        type: DataTypes.STRING
+    },
+    social_media: {
         type: DataTypes.STRING
     },
     estado_mexico: {

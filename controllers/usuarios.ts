@@ -94,13 +94,18 @@ export const postUsuario = async (req: Request, res: Response) => {
         }
         
 
-        const usuarioData: Partial<{ email: string; password?: string }> = {
+        const usuarioData: Partial<{ email: string; password?: string; telefono?: string }> = {
             email: body.email,
         };
 
         if( body.password ){
             usuarioData.password = body.password;
         }
+
+        if (body.telefono) {
+            usuarioData.telefono = body.telefono;
+        }
+
         const usuario = await Usuario.create( usuarioData );
 
         res.status(200).json({
@@ -140,14 +145,17 @@ export const putUsuario = async (req: Request, res: Response) => {
         nombre: body.nombre,
         email: body.email,
         password: body.password,
+        fecha_nacimiento: body.fecha_nacimiento,
         edad: body.edad,
         altura: body.altura,
         peso: body.peso,
         sexo: body.sexo,
         actividad_fisica: body.actividad_fisica,
         tipo_dieta: body.tipo_dieta,
+        alimentos_preferencia: body.alimentos_preferencia,
         alimentos_evitar: body.alimentos_evitar,
         objetivo: body.objetivo,
+        social_media: body.social_media,
         estado_mexico: body.estado_mexico,
         notification_token: body.notification_token,
         deleted: body.deleted
@@ -544,14 +552,14 @@ function formatMeals(meals: Meal[]): MealPlan {
 
 function ajustarCaloriasPorObjetivo(tmb: number, objetivo: string): number {
     switch (objetivo) {
-        case 'Bajar de peso':
-            //return tmb * 0.8; // Reducir en 20%
-            return Number(tmb) - 500; // Reducir 500 kcal
+        case 'Bajar grasa y comer saludable':
+            return Number(tmb) - 500; // Déficit estándar
+        case 'Low Carb y definición muscular':
+            return Number(tmb) - 300; // Déficit más leve
         case 'Mantenimiento':
-            return tmb; // Mismo que la TMB
-        case 'Ganar masa muscular':
-            //return tmb * 1.2; // Incrementar en 20%
-            return Number(tmb) + 500; //  Aumentar 500 kcal
+            return Number(tmb); // Sin ajuste
+        case 'Subir masa muscular':
+            return Number(tmb) + 500; // Superávit calórico
         default:
             throw new Error('Objetivo no válido');
     }
@@ -914,7 +922,7 @@ function getComidasSinRepeticion( planAlimenticio: MealPlan, alimentosEvitar: st
 
 export const generateMealPlanNew = async(req: Request, res: Response) => {
     try {
-        const { tipo_dieta, alimentos_evitar, objetivo, tmb } = req.body;
+        const { tipo_dieta, alimentos_preferencia, alimentos_evitar, objetivo, tmb } = req.body;
 
         if (!objetivo || !tmb || !tipo_dieta) {
             return res.status(400).json({ success: false, message: "Faltan parámetros requeridos: objetivo, tmb y/o tipo_dieta" });
@@ -960,6 +968,7 @@ Genera la sección "${section}" de un plan alimenticio para una persona que tien
 - Tasa metabólica basal: ${tmb} kcal
 - Tipo de dieta: ${tipo_dieta}
 - Alimentos a evitar: ${alimentos_evitar}
+- Alimentos de preferencia: ${alimentos_preferencia}
 
 La distribución de macronutrientes debe ser la siguiente:
 - Proteínas: ${(distribucion.proteina * 100).toFixed(0)}% del total
@@ -988,8 +997,8 @@ Responde solo en formato JSON con la estructura:
             ...
         },
         "Comida": { ... },
-        "Cena": { ... },
         "Colación": { ... }
+        "Cena": { ... },
     }
 }`;
             console.log("GENERANDO SECCIÓN: "+section);
@@ -1240,15 +1249,18 @@ const filterAlimentosByGrupoAndTiempoComida = (alimentos: Alimento[], grupo: str
 function getPorcentajesDistribucionPorObjetivo( objetivo: string ){
 
     switch (objetivo) {
-        case 'Bajar de peso':
+        case 'Bajar grasa y comer saludable':
             return { proteina: 0.3, lipidos: 0.3, hco: 0.4 };
         
+        case 'Low Carb y definición muscular':
+            return { proteina: 0.4, lipidos: 0.35, hco: 0.25 };
+
         case 'Mantenimiento':
             return { proteina: 0.25, lipidos: 0.25, hco: 0.5 };
-            
-        case 'Ganar masa muscular':
+
+        case 'Subir masa muscular':
             return { proteina: 0.35, lipidos: 0.2, hco: 0.45 };
- 
+
         default:
             throw new Error('Objetivo no válido');
     }

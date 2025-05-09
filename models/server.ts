@@ -13,6 +13,9 @@ import configsRoutes from "../routes/config";
 import saludRoutes from "../routes/salud_financiera_mental";
 import planNutricionalRoutes from "../routes/plan_nutricional";
 import mailServiceRoutes from "../routes/mailService";
+import carouselRoutes from "../routes/carousel_images";
+import rutinasRoutes from "../routes/info_rutinas";
+import recomendacionesRoutes from "../routes/recomendaciones_planes";
 import cors from "cors";
 import db from '../db/connection';
 
@@ -33,7 +36,10 @@ class Server {
     config: "/api/config",
     salud: "/api/salud",
     planNutricional: "/api/planNutricional",
-    sendEmail: "/api/sendEmail"
+    sendEmail: "/api/sendEmail",
+    carousel: "/api/carousel",
+    rutinas: "/api/rutinas",
+    recomendaciones: "/api/recomendaciones",
   };
 
   constructor() {
@@ -86,7 +92,9 @@ class Server {
     this.app.use(this.apiPaths.salud, saludRoutes);
     this.app.use(this.apiPaths.planNutricional, planNutricionalRoutes);
     this.app.use(this.apiPaths.sendEmail, mailServiceRoutes);
-
+    this.app.use(this.apiPaths.carousel, carouselRoutes);
+    this.app.use(this.apiPaths.rutinas, rutinasRoutes);
+    this.app.use(this.apiPaths.recomendaciones, recomendacionesRoutes);
   }
 
   listen() {

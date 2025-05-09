@@ -202,6 +202,156 @@ export const sendEmail = async (req: Request, res: Response) => {
 
 };
 
+
+export const sendEmailTest = async (req: Request, res: Response) => {
+    const { body } = req;
+
+
+    const email = body.args.email;
+    const cuerpo = body.args.content;
+    console.log(JSON.stringify( body, null, 1 ));
+    console.log("email recibido: " + email);
+    console.log("cuerpo recibido: " + cuerpo);
+
+    const transporter = nodemailer.createTransport({
+        host: 'smtpout.secureserver.net',
+        port: 465,
+        secure: true, // true para usar SSL
+        auth: {
+            user: process.env.EMAIL_SENDER,
+            pass: process.env.PWD_EMAIL,
+        },
+    });
+
+    const mailOptions = {
+        from: '"Salvador Lopez" <no-reply@enterconecta.com>',
+        to: email, // Dirección del destinatario
+        subject: `El correo se envió correctamente`,
+        html: `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Email Template</title>
+            <style>
+                body {
+                    background-color: #f0f0f0; /* Fondo gris tenue */
+                    margin: 0;
+                    padding: 0;
+                    font-family: Arial, sans-serif;
+                }
+                .container {
+                    max-width: 90%;
+                    background-color: #ffffff; /* Contenedor blanco */
+                    margin: 50px auto; /* Centrado horizontal */
+                    padding: 20px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                    border-radius: 10px;
+                    text-align: center; /* Centrar el contenido */
+                }
+                .container img {
+                    max-width: 100px;
+                }
+                .container h1 {
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container h3 {
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container h2 {
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 30px;
+                }
+                .container ul {
+                     list-style-type: disc; /* Viñetas */
+                     list-style-position: inside; /* Alineación correcta de viñetas */
+                     text-align: left; /* Alineación del texto de la lista a la izquierda */
+                     padding-left: 0; /* Sin margen adicional en la izquierda */
+                     font-size: 16px;
+                     color: #000000; /* Texto negro */
+                     margin-left: 20%; /* Margen izquierdo para alinear bien con el centro */
+                     margin-right: 20%; /* Margen derecho */
+                 }
+                 .container ul li {
+                     margin-bottom: 10px;
+                 }
+        
+                .container .price {
+                    font-size: 16px;
+                    color: #326807;
+                    margin-top: 20px;
+                }
+                .container .price .original-price {
+                    text-decoration: line-through;
+                    margin-right: 5px;
+                }
+                .container a {
+                    display: inline-block;
+                    margin-top: 30px;
+                    padding: 10px 20px;
+                    background-color: #F9A02A;
+                    color: #ffffff;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    font-size: 16px;
+                }
+                .divider {
+                    border-top: 1px solid #cccccc;
+                    margin: 40px 0;
+                }
+                .footer-text {
+                    font-size: 12px;
+                    color: #999999;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <!-- Imagen centrada -->
+                Este es un correo enviado desde asistente
+
+                <!-- Texto principal -->
+                <h1>${cuerpo}</h1>
+                <h2></h2>
+            </div>
+        </body>
+        </html>
+        `,
+    };
+
+    try {
+   
+        const info = await transporter.sendMail(mailOptions);
+        console.log("EL CORREO SE HA ENVIADO A: " + email);
+
+        console.log(JSON.stringify( info,null,3 ));
+
+        res.status(200).json({
+            status: `Ok`,
+            msg: "El correo se ha enviado correctamente",
+            data: "Correo enviado"
+        });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            status: "Error",
+            msg: "Error: Contacte al administrador",
+            data: error
+        });
+    }
+
+}
+
+
 export const sendWelcomeEmailOnlyUser = async ( req: Request, res: Response ) => {
 
     const { body } = req;
