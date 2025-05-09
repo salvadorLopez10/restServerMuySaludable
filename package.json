@@ -1,14 +1,16 @@
 {
   "name": "backend-ts",
   "version": "1.0.0",
-  "description": "",
+  "description": "RESTful API for Muy Saludable - Node.js + TypeScript + Sequelize",
   "main": "dist/app.js",
   "scripts": {
-    "start": "tsc && node dist/app.js",
-    "build": "tsc"
+    "dev": "NODE_ENV=development nodemon dist/app.js",
+    "start": "NODE_ENV=production node dist/app.js",
+    "build": "tsc",
+    "prestart": "npm run build"
   },
   "keywords": [],
-  "author": "",
+  "author": "Salvador Lopez",
   "license": "ISC",
   "devDependencies": {
     "@types/cors": "^2.8.16",

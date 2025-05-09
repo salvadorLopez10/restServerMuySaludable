@@ -1,21 +1,20 @@
 import { Sequelize } from "sequelize";
-import mysql2 from 'mysql2'; 
+import mysql2 from 'mysql2';
+import dotenv from "dotenv";
+import path from "path";
+
+const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env.development";
+dotenv.config({ path: path.resolve(__dirname, `../../${envFile}`) });
 
 const db = new Sequelize(
-  "muy_saludable_db",
-  //"root",
-  "master",
-  //"B34C4dFG6ahB64D5CA6bFbghH4bc2gfa",
-  //"root",
-  "]NmGhf)vwZJ8",
+  process.env.DB_NAME || "",
+  process.env.DB_USER || "",
+  process.env.DB_PASSWORD || "",
   {
-    //host: 'localhost',
-    host: "107.180.114.45",
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT) || 3306,
     dialect: "mysql",
     dialectModule: mysql2,
-    //port: 8889
-    port: 3306,
-    //logging: false
   }
 );
 
