@@ -924,6 +924,9 @@ export const generateMealPlanNew = async(req: Request, res: Response) => {
     try {
         const { tipo_dieta, alimentos_preferencia, alimentos_evitar, objetivo, tmb } = req.body;
 
+        const alimentos_preferencia_string = (alimentos_preferencia.length > 0) ? `Preferencias alimenticias: ${alimentos_preferencia.join(", ")}.` : "";
+        const alimentos_evitar_string = (alimentos_evitar.length > 0) ? `Alergias o restricciones alimenticias: ${alimentos_evitar.join(", ")}.` : "";
+
         if (!objetivo || !tmb || !tipo_dieta) {
             return res.status(400).json({ success: false, message: "Faltan parámetros requeridos: objetivo, tmb y/o tipo_dieta" });
         }
@@ -953,6 +956,7 @@ export const generateMealPlanNew = async(req: Request, res: Response) => {
         
         // Secciones a generar
         const sections = ["Detox", "Mes1", "Mes2"];
+        //const sections = ["Mes1"];
         const completePlan: any = {};
 
         // Configurar OpenAI
@@ -961,75 +965,100 @@ export const generateMealPlanNew = async(req: Request, res: Response) => {
             apiKey: process.env.OPENAI_API_KEY,
         });
 
+        const assistantId = process.env.OPENAI_ASSISTANT_ID;
+        if (!assistantId) {
+            throw new Error("OPENAI_ASSISTANT_ID no está configurada en las variables de entorno");
+        }
+
         for (const section of sections) {
-            const prompt = `
-Genera la sección "${section}" de un plan alimenticio para una persona que tiene las siguientes características:
-- Objetivo: ${objetivo}
-- Tasa metabólica basal: ${tmb} kcal
-- Tipo de dieta: ${tipo_dieta}
-- Alimentos a evitar: ${alimentos_evitar}
-- Alimentos de preferencia: ${alimentos_preferencia}
+            const userPrompt = `
+            Seccion: ${section}.
+            Tipo de dieta: ${tipo_dieta}.
+            Objetivo: ${objetivo}.
+            Tasa metabólica basal: ${tmb}.
+            ${alimentos_evitar_string}
+            ${alimentos_preferencia_string}`;
 
-La distribución de macronutrientes debe ser la siguiente:
-- Proteínas: ${(distribucion.proteina * 100).toFixed(0)}% del total
-- Lípidos: ${(distribucion.lipidos * 100).toFixed(0)}% del total
-- Carbohidratos: ${(distribucion.hco * 100).toFixed(0)}% del total
-
-Cada tipo de comida debe contener 3 opciones además que, cada opción de comida debe incluir:
-- Un **nombre** del platillo.
-- Una lista de **ingredientes** con el siguiente detalle:
-  - nombre: Nombre del ingrediente.
-  - porcion: Cantidad específica de ese ingrediente en unidades, gramos, piezas, o tazas según corresponda.
-
-Tomar en cuenta los siguientes alimentos:
-${alimentosList}
-
-En caso de que se considere necesario, agregar alimentos para generar comidas más variadas, ya que para los planes veganos no se cuenta con un número adecuado de alimentos que puedan funcionar para la generación de planes variados.
-Considerar que las comidas no se deben repetir en las opciones y en el plan generado entre Detox, Mes1 y Mes2.
-
-Responde solo en formato JSON con la estructura:
-{
-    "${section}": {
-        "Desayuno": {
-            "Opcion 1": { "nombre": "...", "ingredientes": [...] },
-            "Opcion 2": { "nombre": "...", "ingredientes": [...] },
-            "Opcion 3": { "nombre": "...", "ingredientes": [...] },
-            ...
-        },
-        "Comida": { ... },
-        "Colación": { ... }
-        "Cena": { ... },
-    }
-}`;
             console.log("GENERANDO SECCIÓN: "+section);
+            console.log(userPrompt);
+            // Crear un thread (hilo)
+            const thread = await openai.beta.threads.create();
+
+            // 2. Añadir el mensaje del usuario al thread
+            await openai.beta.threads.messages.create(thread.id, {
+                role: "user",
+                content: userPrompt
+            });
+
+            // 3. Ejecutar el asistente
+            const run = await openai.beta.threads.runs.create(thread.id, {
+                assistant_id: assistantId,
+                //OPENAI_ASSISTANT_ID
+            });
+
+            // 4. Esperar a que el asistente complete la respuesta
+            let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+            
+            while (runStatus.status !== "completed") {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1 segundo
+                runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+                
+                if (runStatus.status === "failed") {
+                    throw new Error("El asistente falló al procesar la solicitud");
+                }
+            }
+
+            // 5. Obtener la respuesta del asistente
+            const messages = await openai.beta.threads.messages.list(thread.id);
+            const assistantMessage = messages.data.find(msg => msg.role === "assistant");
             // Hacer la solicitud a la API de OpenAI
+            /*
             const response = await openai.chat.completions.create({
                 model: "gpt-3.5-turbo",
                 messages: [{ role: "user", content: prompt }],
                 max_tokens: 3000,
                 temperature: 0.7,
             });
+            */
 
-            const planSection = response.choices[0].message?.content;
+            //const planSection = response.choices[0].message?.content;
+            // AQUÍ ESTÁ EL CAMBIO PRINCIPAL: usar la respuesta del asistente con verificación de tipo
+            let planSection: string | undefined;
+            
+            if (assistantMessage?.content[0]) {
+                const content = assistantMessage.content[0];
+                if (content.type === 'text') {
+                    planSection = content.text.value;
+                } else {
+                    throw new Error(`Tipo de contenido no soportado para la sección ${section}: ${content.type}`);
+                }
+            }
 
             if (!planSection) {
                 throw new Error(`No se recibió respuesta para la sección ${section}.`);
             }
 
-            // Agregar la sección al plan completo
-            completePlan[section] = JSON.parse(planSection)?.[section];
+            console.log(`Respuesta del asistente para ${section}:`, planSection);
+
+             const cleanedJsonString = extractJsonFromMarkdown(planSection);
+
+            // Intentar parsear como JSON
+            try {
+                const parsedSection = JSON.parse(cleanedJsonString);
+                completePlan[section] = parsedSection[section] || parsedSection;
+                console.log(`✅ JSON parseado correctamente para la sección ${section}`);
+            } catch (parseError) {
+                console.log(`❌ No se pudo parsear como JSON la sección ${section}:`, parseError);
+                console.log(`Contenido limpio:`, cleanedJsonString);
+                
+                // Como último recurso, usar el texto tal como está
+                completePlan[section] = planSection;
+            }
 
         }
                
 
-
-        // Crear el prompt dinámico para ChatGPT
-        //const alimentosList = alimentos.map((alimento) => `- ${alimento.nombre}`).join("\n");
-        //console.log("LISTA DE ALIMENTOS");
-        //console.log(alimentosList);
-
-
-        console.log("EL PLAN GENERADO POR GPT");
+        console.log("EL PLAN GENERADO POR EL ASISTENTE");
         console.log(JSON.stringify(completePlan,null,2));
     
 
@@ -1047,6 +1076,19 @@ Responde solo en formato JSON con la estructura:
     }
 
     
+}
+
+const extractJsonFromMarkdown = (text: string): string => {
+    // Buscar bloques de código JSON (```json...``` o ```...```)
+    const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/;
+    const match = text.match(jsonBlockRegex);
+    
+    if (match && match[1]) {
+        return match[1].trim();
+    }
+    
+    // Si no hay bloques de código, devolver el texto original
+    return text.trim();
 }
 
 const calcularCaloriasPorObjetivo = (tmb: number, objetivo: string): number => {
@@ -1253,7 +1295,7 @@ function getPorcentajesDistribucionPorObjetivo( objetivo: string ){
             return { proteina: 0.3, lipidos: 0.3, hco: 0.4 };
         
         case 'Low Carb y definición muscular':
-            return { proteina: 0.4, lipidos: 0.35, hco: 0.25 };
+            return { proteina: 0.25, lipidos: 0.70, hco: 0.05 };
 
         case 'Mantenimiento':
             return { proteina: 0.25, lipidos: 0.25, hco: 0.5 };
