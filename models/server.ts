@@ -16,6 +16,7 @@ import mailServiceRoutes from "../routes/mailService";
 import carouselRoutes from "../routes/carousel_images";
 import rutinasRoutes from "../routes/info_rutinas";
 import recomendacionesRoutes from "../routes/recomendaciones_planes";
+import uploadFilesRoutes from "../routes/upload_file_service";
 import cors from "cors";
 import db from '../db/connection';
 
@@ -40,6 +41,7 @@ class Server {
     carousel: "/api/carousel",
     rutinas: "/api/rutinas",
     recomendaciones: "/api/recomendaciones",
+    uploadFiles: "/api/uploadFiles",
   };
 
   constructor() {
@@ -95,6 +97,7 @@ class Server {
     this.app.use(this.apiPaths.carousel, carouselRoutes);
     this.app.use(this.apiPaths.rutinas, rutinasRoutes);
     this.app.use(this.apiPaths.recomendaciones, recomendacionesRoutes);
+    this.app.use(this.apiPaths.uploadFiles, uploadFilesRoutes);
   }
 
   listen() {
