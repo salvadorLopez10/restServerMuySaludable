@@ -11,6 +11,14 @@ const Carousel = db.define("carousel_images", {
   tipo: {
     type: DataTypes.STRING,
   },
+  vigente_fecha_inicio: {
+    type: DataTypes.DATEONLY,
+    allowNull: false
+  },
+  vigente_fecha_fin: {
+    type: DataTypes.DATEONLY,
+    allowNull: false
+  },
   activo: {
     type: DataTypes.TINYINT,
   },
