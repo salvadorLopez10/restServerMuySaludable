@@ -17,10 +17,10 @@ export const getActiveRecordsCarousel = async (req: Request, res: Response) => {
     const recordsCarousel = await Carousel.findAll({
       where: {
         activo: true,
-        fecha_inicio: {
+        vigente_fecha_inicio: {
           [Op.lte]: fechaActual // Menor o igual a la fecha actual
         },
-        fecha_fin: {
+        vigente_fecha_fin: {
           [Op.gte]: fechaActual // Mayor o igual a la fecha actual
         }
       },
