@@ -7,7 +7,15 @@ const Salud = db.define("config", {
   },
   contenido: {
     type: DataTypes.TEXT,
-  }
+  },
+  vigente_fecha_inicio: {
+    type: DataTypes.DATEONLY,
+    allowNull: false
+  },
+  vigente_fecha_fin: {
+    type: DataTypes.DATEONLY,
+    allowNull: false
+  },
 },{
     freezeTableName: true,
     tableName: "salud_financiera_mental"

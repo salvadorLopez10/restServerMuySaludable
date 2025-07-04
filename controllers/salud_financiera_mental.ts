@@ -1,14 +1,22 @@
 import { Request, Response } from "express";
+import { Op } from 'sequelize';
 import Salud from "../models/salud_financiera_mental";
 
 export const getSaludMental = async (req: Request, res: Response) => {
 
   try {
-
+        const fechaActual = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
         const salud_mental = await Salud.findOne({
             where: {
-                nombre: "Mental"
-            }
+                nombre: "Mental",
+                vigente_fecha_inicio: {
+                    [Op.lte]: fechaActual // Menor o igual a la fecha actual
+                },
+                vigente_fecha_fin: {
+                    [Op.gte]: fechaActual // Mayor o igual a la fecha actual
+                }
+            },
+            order: [['createdAt', 'DESC']] // Ordenar por fecha de creación descendente
         }); 
 
         if ( salud_mental ){
@@ -42,11 +50,18 @@ export const getSaludMental = async (req: Request, res: Response) => {
 export const getSaludFinanciera = async (req: Request, res: Response) => {
 
   try {
-
+        const fechaActual = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
         const salud_financiera = await Salud.findOne({
             where: {
-                nombre: "Financiera"
-            }
+                nombre: "Financiera",
+                vigente_fecha_inicio: {
+                    [Op.lte]: fechaActual // Menor o igual a la fecha actual
+                },
+                vigente_fecha_fin: {
+                    [Op.gte]: fechaActual // Mayor o igual a la fecha actual
+                }
+            },
+            order: [['createdAt', 'DESC']] // Ordenar por fecha de creación descendente
         }); 
 
         if ( salud_financiera ){
