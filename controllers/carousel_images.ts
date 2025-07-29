@@ -49,7 +49,7 @@ export const getRecordsCarouselByType = async (req: Request, res: Response) => {
             [Op.gte]: fechaActual
           }
         },
-        order: [['id', 'ASC']]
+        order: [['createdAt', 'ASC']]
     }); 
   
     if (records && records.length > 0) {
@@ -90,6 +90,41 @@ export const createCarouselRecord = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error al crear registro del carousel:', error);
     res.status(500).json({ error: 'Error al crear registro del carousel' });
+  }
+};
+
+export const createCarouselRecords = async (req: Request, res: Response) => {
+  const { body } = req;
+
+  try {
+    console.log("BODY Carrusel Records");
+    console.log(body);
+
+    // Verificar si el body es un array
+    if (!Array.isArray(body)) {
+      return res.status(400).json({
+        msg: "El cuerpo de la solicitud debe ser un arreglo",
+      });
+    }
+
+    // Crear todas las recomendaciones usando bulkCreate
+    const registrosCreados = await Carousel.bulkCreate(body.map(item => ({
+      titulo: item.titulo,
+      image_url: item.image_url,
+      tipo: item.tipo,
+      vigente_fecha_inicio: item.vigente_fecha_inicio,
+      vigente_fecha_fin: item.vigente_fecha_fin,
+      activo: item.activo,
+    })));
+
+    res.json(registrosCreados);
+
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      msg: "Error: Contacte al administrador",
+    });
   }
 };
 

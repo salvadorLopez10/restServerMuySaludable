@@ -97,7 +97,9 @@ export const UploadFile = async (req: Request, res: Response) => {
             });
         }
 
-        const publicUrl = process.env.GODADDY_PUBLIC_URL || 'http://muysaludable.com.mx/uploads/';
+        let publicUrl = process.env.GODADDY_PUBLIC_URL || 'http://muysaludable.com.mx/uploads/';
+        publicUrl = publicUrl.replace(/^http:\/\//i, 'https://');
+        
         const uploadedFiles: Array<{
             originalName: string;
             fileName: string;

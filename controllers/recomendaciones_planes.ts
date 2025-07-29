@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import Recomendaciones from "../models/recomendaciones_planes";
+import db from "../db/connection";
 
 export const getRecomendaciones = async (req: Request, res: Response) => {
   const recomendaciones = await Recomendaciones.findAll({
@@ -74,18 +75,35 @@ export const postRecomendaciones = async (req: Request, res: Response) => {
       });
     }
 
-    // Crear todas las recomendaciones usando bulkCreate
-    const recomendacionesCreadas = await Recomendaciones.bulkCreate(body.map(item => ({
-      objetivo: item.objetivo,
-      titulo: item.titulo,
-      descripcion: item.descripcion,
-      image_url: item.image_url,
-      orden: item.orden,
-      visible: item.visible,
-    })));
+    // Antes de insertar nuevas recomendaciones, actualizar todas las existentes a visible = 0
+    // Esto asegura que solo las nuevas recomendaciones sean visibles
+    const result = await db.transaction(async (t) => {
+      // Primero: Actualizar todos los registros existentes poniendo visible = 0
+      await Recomendaciones.update(
+        { visible: 0 },
+        { 
+          where: {},  // Sin condiciones = todos los registros
+          transaction: t 
+        }
+      );
 
-    res.json(recomendacionesCreadas);
+      // Segundo: Crear todas las nuevas recomendaciones
+      const recomendacionesCreadas = await Recomendaciones.bulkCreate(
+        body.map(item => ({
+          objetivo: item.objetivo,
+          titulo: item.titulo,
+          descripcion: item.descripcion,
+          image_url: item.image_url,
+          orden: item.orden,
+          visible: item.visible, // Siempre viene como 1 según tu descripción
+        })),
+        { transaction: t }
+      );
 
+      return recomendacionesCreadas;
+    });
+
+    res.json(result);
   } catch (error) {
     console.log(error);
     res.status(500).json({

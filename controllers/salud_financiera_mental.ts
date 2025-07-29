@@ -91,3 +91,31 @@ export const getSaludFinanciera = async (req: Request, res: Response) => {
 
     }
 };
+
+export const createSaludRecord = async (req: Request, res: Response) => {
+  try {
+    const { nombre, contenido, vigente_fecha_inicio, vigente_fecha_fin } = req.body;
+    
+    // Validar que fecha_fin sea mayor que fecha_inicio
+    if (new Date(vigente_fecha_fin) <= new Date(vigente_fecha_inicio)) {
+      return res.status(400).json({ 
+        error: 'La fecha de fin debe ser posterior a la fecha de inicio' 
+      });
+    }
+    
+    const newRecord = await Salud.create({
+      nombre,
+      contenido,
+      vigente_fecha_inicio,
+      vigente_fecha_fin
+    });
+    
+    res.status(201).json({ 
+      message: 'Registro creado exitosamente', 
+      record: newRecord 
+    });
+  } catch (error) {
+    console.error('Error al crear registro del carousel:', error);
+    res.status(500).json({ error: 'Error al crear registro del carousel' });
+  }
+};
