@@ -5,6 +5,8 @@ import db from "../db/connection";
 import { Ingredient, JSONResponse, Meal, MealGroup, MealPlan, TipoComida } from "./interfaces";
 import OpenAI from "openai";
 import NuevoAlimento from "../models/nuevos_alimentos";
+import { mealPlanService } from '../services/mealPlanService';
+
 
 type Alimento = {
     id: number;
@@ -924,158 +926,65 @@ export const generateMealPlanNew = async(req: Request, res: Response) => {
     try {
         const { tipo_dieta, alimentos_preferencia, alimentos_evitar, objetivo, tmb } = req.body;
 
-        const alimentos_preferencia_string = (alimentos_preferencia.length > 0) ? `Preferencias alimenticias: ${alimentos_preferencia.join(", ")}.` : "";
-        const alimentos_evitar_string = (alimentos_evitar.length > 0) ? `Alergias o restricciones alimenticias: ${alimentos_evitar.join(", ")}.` : "";
-
+        // Validación de parámetros
         if (!objetivo || !tmb || !tipo_dieta) {
-            return res.status(400).json({ success: false, message: "Faltan parámetros requeridos: objetivo, tmb y/o tipo_dieta" });
+            return res.status(400).json({ 
+                success: false, 
+                message: "Faltan parámetros requeridos: objetivo, tmb y/o tipo_dieta" 
+            });
         }
 
-        // Validar el objetivo y obtener los porcentajes
-       
-        let distribucion = getPorcentajesDistribucionPorObjetivo(objetivo);
-       
+        console.log(`🚀 Iniciando generación de plan con BD para: ${tipo_dieta} - ${objetivo}`);
 
-        // Obtener la lista de alimentos
-        const alimentosRaw = await NuevoAlimento.findAll({
-            order: [["nombre", "ASC"]],
-        });
-        
-        const alimentos: Alimento[] = alimentosRaw.map((alimento) => alimento.toJSON()) as Alimento[];
-
-        // Preparar la lista de alimentos en formato detallado
-        const alimentosList = alimentos
-            .map((alimento) =>{
-                //console.log(alimento);
-                const unidad = alimento.unidad_medida == "pz" ? "pieza" : alimento.unidad_medida;
-                //console.log(unidad);
-                //console.log(`- ${alimento.nombre}, equivalente ${alimento.equivalente} (${unidad}): ${alimento.kcal} kcal, ${alimento.proteinas}g proteínas, ${alimento.lipidos}g lípidos, ${alimento.hco}g carbohidratos. Grupo: ${alimento.grupo}.`);
-                return `- ${alimento.nombre}, equivalente ${alimento.equivalente} (${unidad}): ${alimento.kcal} kcal, ${alimento.proteinas}g proteínas, ${alimento.lipidos}g lípidos, ${alimento.hco}g carbohidratos. Grupo: ${alimento.grupo}.`
-            }).join("\n");
-
-        
-        // Secciones a generar
-        const sections = ["Detox", "Mes1", "Mes2"];
-        //const sections = ["Mes1"];
-        const completePlan: any = {};
-
-        // Configurar OpenAI
-        console.log(process.env.OPENAI_API_KEY);
-        const openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY,
+        // Usar el nuevo servicio híbrido
+        const result = await mealPlanService.generateCompletePlan({
+            tipo_dieta,
+            objetivo,
+            tmb,
+            alimentos_evitar: alimentos_evitar || [],
+            alimentos_preferencia: alimentos_preferencia || []
         });
 
-        const assistantId = process.env.OPENAI_ASSISTANT_ID;
-        if (!assistantId) {
-            throw new Error("OPENAI_ASSISTANT_ID no está configurada en las variables de entorno");
-        }
+        console.log("✅ Plan generado y validado exitosamente");
+        console.log(`📊 Estadísticas:`, result.statistics);
 
-        for (const section of sections) {
-            const userPrompt = `
-            Seccion: ${section}.
-            Tipo de dieta: ${tipo_dieta}.
-            Objetivo: ${objetivo}.
-            Tasa metabólica basal: ${tmb}.
-            ${alimentos_evitar_string}
-            ${alimentos_preferencia_string}`;
-
-            console.log("GENERANDO SECCIÓN: "+section);
-            console.log(userPrompt);
-            // Crear un thread (hilo)
-            const thread = await openai.beta.threads.create();
-
-            // 2. Añadir el mensaje del usuario al thread
-            await openai.beta.threads.messages.create(thread.id, {
-                role: "user",
-                content: userPrompt
-            });
-
-            // 3. Ejecutar el asistente
-            const run = await openai.beta.threads.runs.create(thread.id, {
-                assistant_id: assistantId,
-                //OPENAI_ASSISTANT_ID
-            });
-
-            // 4. Esperar a que el asistente complete la respuesta
-            let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-            
-            while (runStatus.status !== "completed") {
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1 segundo
-                runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-                
-                if (runStatus.status === "failed") {
-                    throw new Error("El asistente falló al procesar la solicitud");
-                }
-            }
-
-            // 5. Obtener la respuesta del asistente
-            const messages = await openai.beta.threads.messages.list(thread.id);
-            const assistantMessage = messages.data.find(msg => msg.role === "assistant");
-            // Hacer la solicitud a la API de OpenAI
-            /*
-            const response = await openai.chat.completions.create({
-                model: "gpt-3.5-turbo",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: 3000,
-                temperature: 0.7,
-            });
-            */
-
-            //const planSection = response.choices[0].message?.content;
-            // AQUÍ ESTÁ EL CAMBIO PRINCIPAL: usar la respuesta del asistente con verificación de tipo
-            let planSection: string | undefined;
-            
-            if (assistantMessage?.content[0]) {
-                const content = assistantMessage.content[0];
-                if (content.type === 'text') {
-                    planSection = content.text.value;
-                } else {
-                    throw new Error(`Tipo de contenido no soportado para la sección ${section}: ${content.type}`);
-                }
-            }
-
-            if (!planSection) {
-                throw new Error(`No se recibió respuesta para la sección ${section}.`);
-            }
-
-            console.log(`Respuesta del asistente para ${section}:`, planSection);
-
-             const cleanedJsonString = extractJsonFromMarkdown(planSection);
-
-            // Intentar parsear como JSON
-            try {
-                const parsedSection = JSON.parse(cleanedJsonString);
-                completePlan[section] = parsedSection[section] || parsedSection;
-                console.log(`✅ JSON parseado correctamente para la sección ${section}`);
-            } catch (parseError) {
-                console.log(`❌ No se pudo parsear como JSON la sección ${section}:`, parseError);
-                console.log(`Contenido limpio:`, cleanedJsonString);
-                
-                // Como último recurso, usar el texto tal como está
-                completePlan[section] = planSection;
-            }
-
-        }
-               
-
-        console.log("EL PLAN GENERADO POR EL ASISTENTE");
-        console.log(JSON.stringify(completePlan,null,2));
-    
-
-        // Devolver el plan generado
         res.status(200).json({
             status: "Ok",
-            msg: "Plan generado",
-            //data: JSON.parse(plan || "{}"),
-            data: completePlan
+            msg: "Plan generado con validación automática desde BD",
+            data: result.plan,
+            statistics: result.statistics
         });
 
-    } catch (error:any) {
-        console.error(error);
-        res.status(500).json({ success: false, message: error.message });
+    } catch (error: any) {
+        console.error("❌ Error generando plan:", error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
     }
+}
 
+
+// Función auxiliar para extraer nombres de comidas de una sección
+function extractMealNames(sectionData: any): string[] {
+    const mealNames: string[] = [];
     
+    // Iterar sobre los tipos de comida (Desayuno, Comida, Colación, Cena)
+    for (const mealType in sectionData) {
+        if (mealType === "Hidratación") continue; // Saltar hidratación
+        
+        const mealTypeData = sectionData[mealType];
+        
+        // Iterar sobre las opciones (Opcion 1, Opcion 2, etc.)
+        for (const option in mealTypeData) {
+            const optionData = mealTypeData[option];
+            if (optionData && optionData.nombre) {
+                mealNames.push(optionData.nombre);
+            }
+        }
+    }
+    
+    return mealNames;
 }
 
 const extractJsonFromMarkdown = (text: string): string => {

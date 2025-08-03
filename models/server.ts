@@ -17,6 +17,7 @@ import carouselRoutes from "../routes/carousel_images";
 import rutinasRoutes from "../routes/info_rutinas";
 import recomendacionesRoutes from "../routes/recomendaciones_planes";
 import uploadFilesRoutes from "../routes/upload_file_service";
+import comidasDisponiblesRoutes from "../routes/comida_disponible";
 import cors from "cors";
 import db from '../db/connection';
 
@@ -42,6 +43,7 @@ class Server {
     rutinas: "/api/rutinas",
     recomendaciones: "/api/recomendaciones",
     uploadFiles: "/api/uploadFiles",
+    comidasDisponibles: "/api/comidasDisponibles"
   };
 
   constructor() {
@@ -98,6 +100,7 @@ class Server {
     this.app.use(this.apiPaths.rutinas, rutinasRoutes);
     this.app.use(this.apiPaths.recomendaciones, recomendacionesRoutes);
     this.app.use(this.apiPaths.uploadFiles, uploadFilesRoutes);
+    this.app.use(this.apiPaths.comidasDisponibles, comidasDisponiblesRoutes);
   }
 
   listen() {
