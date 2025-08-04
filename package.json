@@ -20,6 +20,7 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
     "@types/ftp": "^0.3.36",
     "@types/multer": "^1.4.13",
     "cors": "^2.8.5",
