@@ -58,7 +58,7 @@ class MealDataService {
             const whereClause: any = {
                 tipo_dieta: tipoDieta,
                 objetivo: objetivo,
-                is_active: true
+                activo: true
             };
 
             if (excludeNames.length > 0) {
