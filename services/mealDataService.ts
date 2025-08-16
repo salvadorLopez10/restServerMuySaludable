@@ -18,7 +18,10 @@ class MealDataService {
                     activo: true
                 },
                 attributes: ['nombre_exacto', 'tiempo_comida'],
-                order: [["tiempo_comida", "ASC"]],
+                order: [
+                    ['tiempo_comida', 'ASC'],
+                    ['id', 'ASC']
+                ]
             });
 
             // Agrupar por tiempo de comida
@@ -42,7 +45,7 @@ class MealDataService {
 
             return grouped;
 
-        } catch (error:any) {
+        } catch (error: any) {
             console.error('❌ Error obteniendo nombres exactos:', error);
             throw new Error(`Error cargando comidas: ${error.message}`);
         }
@@ -52,7 +55,8 @@ class MealDataService {
     async getAvailableExactNames(
         tipoDieta: string, 
         objetivo: string, 
-        excludeNames: string[] = []
+        excludeNames: string[] = [],
+        allowReuse: boolean = false
     ): Promise<MealsByTime> {
         try {
             const whereClause: any = {
@@ -61,7 +65,8 @@ class MealDataService {
                 activo: true
             };
 
-            if (excludeNames.length > 0) {
+            // Solo excluir si no estamos en modo reuso
+            if (excludeNames.length > 0 && !allowReuse) {
                 whereClause.nombre_exacto = {
                     [Op.notIn]: excludeNames
                 };
@@ -70,7 +75,10 @@ class MealDataService {
             const comidas = await ComidaDisponible.findAll({
                 where: whereClause,
                 attributes: ['nombre_exacto', 'tiempo_comida'],
-                order: [["tiempo_comida", "ASC"]],
+                order: [
+                    ['tiempo_comida', 'ASC'],
+                    ['id', 'ASC']
+                ]
             });
 
             const grouped: MealsByTime = {
@@ -82,6 +90,22 @@ class MealDataService {
 
             comidas.forEach((comida: any) => {
                 grouped[comida.tiempo_comida].push(comida.nombre_exacto);
+            });
+
+            // Si algún tiempo tiene menos de 3 opciones y no estamos en modo reuso, activarlo
+            for (const timeOfDay in grouped) {
+                if (grouped[timeOfDay].length < 3 && !allowReuse) {
+                    console.log(`⚠️ Pocas opciones para ${timeOfDay} (${grouped[timeOfDay].length}), permitiendo reutilización`);
+                    return this.getAvailableExactNames(tipoDieta, objetivo, [], true);
+                }
+            }
+
+            console.log(`📊 Comidas encontradas para ${tipoDieta} - ${objetivo}:`, {
+                Desayuno: grouped.Desayuno.length,
+                Comida: grouped.Comida.length,
+                Colación: grouped.Colación.length,
+                Cena: grouped.Cena.length,
+                allowReuse: allowReuse
             });
 
             return grouped;
@@ -100,7 +124,7 @@ class MealDataService {
                     nombre_exacto: nombre,
                     tipo_dieta: tipoDieta,
                     objetivo: objetivo,
-                    is_active: true
+                    activo: true
                 }
             });
 
@@ -118,7 +142,7 @@ class MealDataService {
                 where: {
                     tipo_dieta: tipoDieta,
                     objetivo: objetivo,
-                    is_active: true
+                    activo: true
                 },
                 attributes: [
                     'tiempo_comida',
