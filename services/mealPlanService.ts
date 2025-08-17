@@ -209,12 +209,14 @@ CRÍTICO: Antes de responder, verifica que:
         }
         
         // Asegurar que existe hidratación
+        /*
         if (!processedData["Hidratación"]) {
             processedData["Hidratación"] = {
                 "recomendaciones": "Beber al menos 2 litros de agua al día."
             };
             warnings.push("Sección de hidratación agregada automáticamente");
         }
+        */
         
         return processedData;
     }
