@@ -64,7 +64,7 @@ FORMATO DE RESPUESTA CRÍTICO:
 
 PARA CADA NOMBRE EXACTO que elijas:
 - Genera los ingredientes específicos y sus porciones
-- Calcula porciones para ${params.objetivo} (TMB: ${params.tmb}, Calorías: ${targetCalories})
+- Calcula porciones para ${params.objetivo} (Tasa metabólica basal: ${params.tmb}, Calorías: ${targetCalories})
 - Escribe instrucciones de preparación detalladas
 - VERIFICA que no combines ingredientes prohibidos
 
