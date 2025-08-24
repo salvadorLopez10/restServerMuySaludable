@@ -952,7 +952,7 @@ export const generateMealPlanNew = async (req: Request, res: Response) => {
             status: "Ok",
             msg: "Plan generado con sistema ultra-permisivo",
             data: result.plan,
-            statistics: result.statistics
+            //statistics: result.statistics
         });
 
     } catch (error: any) {
@@ -999,9 +999,6 @@ function generateBasicSection(section: string) {
             "Opcion 2": {"nombre": "Cena balanceada", "ingredientes": [{"nombre": "Ensalada", "porcion": "1 taza"}], "preparacion": "Combinar saludablemente"},
             "Opcion 3": {"nombre": "Cena nutritiva", "ingredientes": [{"nombre": "Fibra", "porcion": "1 porción"}], "preparacion": "Preparar conscientemente"}
         },
-        "Hidratación": {
-            "recomendaciones": "Mantener hidratación adecuada con al menos 2 litros de agua diarios."
-        }
     };
 }
 
