@@ -59,8 +59,8 @@ export const getComidasByDietAndObjective = async (req: Request, res: Response) 
     const { tipo_dieta, objetivo } = req.params;
 
     try {
-        const comidas = await mealDataService.getExactMealNames(tipo_dieta, objetivo);
-        const stats = await mealDataService.getMealStats(tipo_dieta, objetivo);
+        const comidas = await mealDataService.getAvailableExactNames(tipo_dieta, objetivo);
+        const stats = await mealDataService.getAvailableExactNames(tipo_dieta, objetivo);
 
         res.json({
             status: "Ok",
