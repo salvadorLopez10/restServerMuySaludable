@@ -19,3 +19,40 @@ export const getPlanById = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const updatePlanAlimenticio = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { nombre, resumen, descripcion_detallada, duracion_meses, precio, precio_regular } = req.body;
+
+    try {
+        const plan = await Planes_Alimenticios.findByPk(id);
+
+        if (!plan) {
+            return res.status(404).json({
+                success: false,
+                message: `No existe plan con id ${id}`
+            });
+        }
+
+        await plan.update({
+            nombre,
+            resumen,
+            descripcion_detallada,
+            duracion_meses,
+            precio,
+            precio_regular
+        });
+
+        res.json({
+            status: "Ok",
+            msg: "Plan alimenticio actualizado",
+            data: plan
+        });
+    } catch (error: any) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
