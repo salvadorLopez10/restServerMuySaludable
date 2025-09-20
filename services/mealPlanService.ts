@@ -170,7 +170,29 @@ class MealPlanService {
         const targetCalories = params.tmb + macroRules.caloriasAjuste;
 
         // Limitar usedMeals para evitar prompts muy largos
-        const recentUsedMeals = usedMeals.slice(-20); // Solo últimas 20 comidas
+        const recentUsedMeals = usedMeals.slice(-20);
+
+        // CREAR LISTA DE PALABRAS CLAVE PROHIBIDAS DE FORMA GENÉRICA
+        const forbiddenKeywords: string[] = [];
+        if (params.alimentos_evitar && params.alimentos_evitar.length > 0) {
+            params.alimentos_evitar.forEach(alimento => {
+                const base = alimento.toLowerCase().trim();
+                forbiddenKeywords.push(base);
+                
+                // Dividir en palabras y agregar palabras significativas (>2 caracteres)
+                const words = base.split(' ').filter(word => word.length > 2);
+                words.forEach(word => {
+                    if (!forbiddenKeywords.includes(word)) {
+                        forbiddenKeywords.push(word);
+                    }
+                });
+            });
+            
+            // Remover duplicados
+            const uniqueKeywords = [...new Set(forbiddenKeywords)];
+            forbiddenKeywords.length = 0;
+            forbiddenKeywords.push(...uniqueKeywords);
+        }
 
         const response = await this.openai.chat.completions.create({
             model: "gpt-4-turbo",
@@ -179,66 +201,112 @@ class MealPlanService {
             messages: [
                 {
                     role: "system",
-                    content: `Eres un nutriólogo experto. DEBES usar ÚNICAMENTE nombres de estas comidas disponibles:
+                    content: `Eres un nutriólogo experto.
 
-NOMBRES DISPONIBLES POR TIEMPO:
-${JSON.stringify(exactMealNames, null, 2)}
+        🚨 REGLA ABSOLUTA #1 - ALIMENTOS PROHIBIDOS (PRIORIDAD MÁXIMA):
+        ANTES que cualquier otra consideración, estos alimentos están COMPLETAMENTE PROHIBIDOS:
+        ${params.alimentos_evitar?.map(alimento => `- ${alimento} (NUNCA EN NINGUNA FORMA)`).join('\n') || '- ninguno'}
 
-REGLAS CRÍTICAS DE NOMBRES:
-1. USA SOLO nombres de la lista anterior
-2. NO repitas estos nombres recientes: ${recentUsedMeals.join(', ')}
-3. Cada Opción 1, 2, 3 debe tener nombre DIFERENTE
-4. Si no hay opciones suficientes, usa variaciones del nombre
+        PALABRAS CLAVE PROHIBIDAS EN INGREDIENTES:
+        ${forbiddenKeywords.length > 0 ? forbiddenKeywords.map(keyword => `- "${keyword}"`).join('\n') : '- ninguna'}
 
-RESTRICCIONES NUTRICIONALES OBLIGATORIAS:
-${NUTRITION_RULES}
+        VALIDACIÓN ABSOLUTA OBLIGATORIA:
+        1. ¿Esta palabra exacta aparece en la lista prohibida? → SI = RECHAZAR INMEDIATAMENTE
+        2. ¿Es sinónimo/variación de algo prohibido? → SI = RECHAZAR INMEDIATAMENTE
+        3. ¿El platillo normalmente contendría algo prohibido? → SI = SUSTITUIR COMPLETAMENTE
 
-RESTRICCIONES ESPECÍFICAS PARA DIETA ${params.tipo_dieta.toUpperCase()}:
-${JSON.stringify(nutritionRules, null, 2)}
+        ⚠️ REGLA INQUEBRANTABLE: Si encuentras cualquier palabra de la lista prohibida, DETENTE y usa un ingrediente diferente.
+        Esta regla SOBREPASA cualquier otra instrucción de consistencia, completitud o nombres.
 
-ALIMENTOS PROHIBIDOS (NO INCLUIR NUNCA):
-${params.alimentos_evitar?.join(', ') || 'ninguno'}
+        DEBES usar ÚNICAMENTE nombres de estas comidas disponibles:
+        NOMBRES DISPONIBLES POR TIEMPO:
+        ${JSON.stringify(exactMealNames, null, 2)}
 
-ALIMENTOS A PREFERIR:
-${params.alimentos_preferencia?.join(', ') || 'ninguna'}
+        REGLAS DE NOMBRES - CUMPLIMIENTO OBLIGATORIO:
+        1. USA SOLO nombres de la lista anterior
+        2. NO repitas estos nombres recientes: ${recentUsedMeals.join(', ')}
+        3. Cada Opción 1, 2, 3 debe tener nombre DIFERENTE
+        4. Si no hay opciones suficientes, usa variaciones del nombre
 
-MACRONUTRIENTES OBJETIVO:
-- Calorías: ${targetCalories}
-- Proteínas: ${macroRules.proteinas}%
-- Grasas: ${macroRules.grasas}%
-- Carbohidratos: ${macroRules.carbohidratos}%
+        REGLAS PARA COHERENCIA NOMBRE-INGREDIENTES:
+        1. CADA PALABRA del nombre del platillo debe tener su ingrediente correspondiente
+        2. "Alambre de pollo con pimientos" → DEBE incluir: pollo + pimientos + otros ingredientes
+        3. "Filete de res a la plancha" → DEBE incluir: filete de res + acompañamientos
+        4. "Ensalada de X con Y y Z" → DEBE incluir: X + Y + Z + base de ensalada
+        5. NUNCA listés solo un ingrediente para platillos complejos
 
-REGLAS DE INGREDIENTES CRÍTICAS:
-1. Los ingredientes DEBEN coincidir con el nombre de la comida
-2. "Yogurt griego con almendras" → ingredientes: yogurt + almendras
-3. "Apios con limón" → ingredientes: apio + limón
-4. NUNCA pongas ingredientes que no correspondan al nombre
-5. RESPETA todas las restricciones nutricionales
-6. NO uses ingredientes de la lista PROHIBIDA
+        VALIDACIÓN DE COHERENCIA OBLIGATORIA:
+        - ¿El nombre menciona "pollo"? → DEBE aparecer "pollo" o "pechuga de pollo" en ingredientes
+        - ¿El nombre menciona "res"? → DEBE aparecer "res", "bistec" o "carne de res" en ingredientes
+        - ¿El nombre menciona "pimientos"? → DEBE aparecer "pimientos" en ingredientes
+        - ¿El nombre menciona "alambre"? → DEBE incluir carne + verduras + condimentos
+        - ¿Es una "ensalada"? → DEBE incluir base verde + todos los componentes mencionados
 
-FORMATO JSON EXACTO:
-{
-    "${section}": {
-        "Desayuno": {
-            "Opcion 1": {"nombre": "NOMBRE DE LA LISTA", "ingredientes": [{"nombre": "ingrediente correcto", "porcion": "cantidad"}], "preparacion": "pasos coherentes"},
-            "Opcion 2": {"nombre": "NOMBRE DIFERENTE", "ingredientes": [...], "preparacion": "..."},
-            "Opcion 3": {"nombre": "NOMBRE DIFERENTE", "ingredientes": [...], "preparacion": "..."}
-        },
-        "Comida": { "Opcion 1": {...}, "Opcion 2": {...}, "Opcion 3": {...} },
-        "Colación": { "Opcion 1": {...}, "Opcion 2": {...}, "Opcion 3": {...} },
-        "Cena": { "Opcion 1": {...}, "Opcion 2": {...}, "Opcion 3": {...} },
-    }
-}
+        ALIMENTOS A PREFERIR:
+        ${params.alimentos_preferencia?.join(', ') || 'ninguna preferencia específica'}
 
-VERIFICACIÓN FINAL OBLIGATORIA:
-1. ¿Los ingredientes coinciden con el nombre?
-2. ¿Se respetan las restricciones nutricionales?
-3. ¿No hay ingredientes prohibidos?
-4. ¿Cada opción tiene nombre diferente?`
+        RESTRICCIONES NUTRICIONALES:
+        ${NUTRITION_RULES}
+
+        RESTRICCIONES ESPECÍFICAS PARA DIETA ${params.tipo_dieta.toUpperCase()}:
+        ${JSON.stringify(nutritionRules, null, 2)}
+
+        MACRONUTRIENTES OBJETIVO:
+        - Calorías: ${targetCalories}
+        - Proteínas: ${macroRules.proteinas}%
+        - Grasas: ${macroRules.grasas}%
+        - Carbohidratos: ${macroRules.carbohidratos}%
+
+        EJEMPLO CORRECTO:
+        Nombre: "Alambre de pollo con pimientos y ensalada verde"
+        Ingredientes: [
+            {"nombre": "pechuga de pollo", "porcion": "150g"},
+            {"nombre": "pimientos", "porcion": "1/2 taza"},
+            {"nombre": "lechuga mixta", "porcion": "2 tazas"},
+            {"nombre": "sal y pimienta", "porcion": "al gusto"}
+        ]
+
+        EJEMPLO INCORRECTO:
+        Nombre: "Alambre de pollo con pimientos y ensalada verde"
+        Ingredientes: [{"nombre": "lechuga mixta", "porcion": "2 tazas"}] ❌ FALTA POLLO Y PIMIENTOS
+
+        FORMATO JSON EXACTO - NO MARKDOWN:
+        {
+            "${section}": {
+                "Desayuno": {
+                    "Opcion 1": {"nombre": "NOMBRE_EXACTO_DE_LA_LISTA", "ingredientes": [{"nombre": "ingrediente_100%_permitido", "porcion": "cantidad"}], "preparacion": "pasos_sin_mencionar_prohibidos"},
+                    "Opcion 2": {"nombre": "NOMBRE_DIFERENTE_DE_LA_LISTA", "ingredientes": [...], "preparacion": "..."},
+                    "Opcion 3": {"nombre": "NOMBRE_DIFERENTE_DE_LA_LISTA", "ingredientes": [...], "preparacion": "..."}
+                },
+                "Comida": { "Opcion 1": {...}, "Opcion 2": {...}, "Opcion 3": {...} },
+                "Colación": { "Opcion 1": {...}, "Opcion 2": {...}, "Opcion 3": {...} },
+                "Cena": { "Opcion 1": {...}, "Opcion 2": {...}, "Opcion 3": {...} }
+            }
+        }
+
+        🔍 PROCESO DE VERIFICACIÓN FINAL OBLIGATORIO:
+        PASO 1: ¿HAY ALGUNA PALABRA PROHIBIDA? → Si SÍ = CORREGIR INMEDIATAMENTE
+        PASO 2: ¿Los ingredientes coinciden con el nombre? → Si NO = AGREGAR FALTANTES
+        PASO 3: ¿Cada opción tiene nombre diferente? → Si NO = CAMBIAR NOMBRES
+        PASO 4: ¿Se respetan restricciones nutricionales? → Si NO = AJUSTAR
+
+        ⚠️ IMPORTANTE: Tu respuesta será AUTOMÁTICAMENTE RECHAZADA si contiene cualquier palabra prohibida.
+        La prohibición de alimentos es MÁS IMPORTANTE que la coherencia de ingredientes.`
                 },
                 {
                     role: "user",
-                    content: `Genera ${section} respetando TODAS las restricciones. Intento ${attempt} de 3.`
+                    content: `Genera ${section} respetando TODAS las restricciones. Intento ${attempt} de 3.
+
+        🚨 ADVERTENCIA FINAL - RECHAZO AUTOMÁTICO: 
+        PRIMERA PRIORIDAD: Tu respuesta será rechazada si contiene cualquiera de estos alimentos:
+        ${params.alimentos_evitar?.join(', ') || 'ninguno'}
+
+        O cualquiera de estas palabras clave:
+        ${forbiddenKeywords.join(', ')}
+
+        SEGUNDA PRIORIDAD: Verifica que ingredientes coincidan con nombres de platillos.
+
+        Verifica PRIMERO alimentos prohibidos, DESPUÉS coherencia. NO uses markdown.`
                 }
             ]
         });
@@ -781,6 +849,43 @@ VERIFICACIÓN FINAL OBLIGATORIA:
         return mealTime;
     }
 
+    private validateForbiddenIngredients(content: string, forbiddenFoods: string[]): {isValid: boolean, violations: string[]} {
+        const violations: string[] = [];
+        const contentLower = content.toLowerCase();
+        
+        forbiddenFoods.forEach(food => {
+            const foodLower = food.toLowerCase();
+            
+            // Estrategia 1: Buscar el nombre completo exacto
+            if (contentLower.includes(foodLower)) {
+                violations.push(`${food} (coincidencia exacta)`);
+                return; // Si encuentra coincidencia exacta, no buscar más variaciones
+            }
+            
+            // Estrategia 2: Buscar palabras clave principales del alimento
+            const foodWords = foodLower.split(' ').filter(word => word.length > 2); // Ignorar palabras muy cortas como "de", "en"
+            
+            const foundWords: string[] = [];
+            foodWords.forEach(word => {
+                if (contentLower.includes(word)) {
+                    foundWords.push(word);
+                }
+            });
+            
+            // Si se encuentran la mayoría de las palabras clave (al menos 70%), considerar violación
+            const matchPercentage = foundWords.length / foodWords.length;
+            if (matchPercentage >= 0.7 && foundWords.length > 0) {
+                violations.push(`${food} (palabras detectadas: ${foundWords.join(', ')})`);
+            }
+        });
+        
+        return {
+            isValid: violations.length === 0,
+            violations: violations
+        };
+    }
+
+
     private generateEmergencyPlan(section: string, availableMeals: any, params: MealPlanParams) {
         const plan: any = {
             "Hidratación": {
@@ -1036,81 +1141,118 @@ VERIFICACIÓN FINAL OBLIGATORIA:
     }
 
     private async processGeneratedContent(
-        generatedContent: string,
-        section: string,
-        exactMealNames: any,
-        usedMeals: string[],
-        attempts: number,
-        maxAttempts: number,
-        params: MealPlanParams
-    ): Promise<any> {
-        if (!generatedContent) {
-            console.log(`No se recibió contenido para ${section}`);
-            return null;
-        }
-
-        // Detectar markdown temprano
-        if (generatedContent.includes('```') && attempts <= 2) {
-            console.log(`Detectado markdown en respuesta de ${section}, reintentando...`);
-            return null;
-        }
-
-        console.log(`Contenido generado para ${section} (primeros 200 chars):`, generatedContent.substring(0, 200) + '...');
-
-        // Limpiar JSON
-        const cleanJson = extractJsonFromMarkdown(generatedContent);
-        
-        // Validación JSON básica
-        if (!cleanJson.startsWith('{') || !cleanJson.endsWith('}')) {
-            if (attempts >= maxAttempts) {
-                console.log(`JSON malformado en último intento, usando plan de emergencia...`);
-                return this.generateEmergencyPlan(section, exactMealNames, params);
-            }
-            console.log(`Contenido no es JSON válido para ${section}`);
-            return null;
-        }
-        
-        let parsedPlan;
-        try {
-            parsedPlan = JSON.parse(cleanJson);
-            console.log(`JSON parseado correctamente para ${section}`);
-        } catch (parseError: unknown) {
-            if (attempts >= maxAttempts) {
-                console.log(`Error de parsing en último intento, usando plan de emergencia...`);
-                return this.generateEmergencyPlan(section, exactMealNames, params);
-            }
-            const errorMessage = parseError instanceof Error ? parseError.message : 'Error desconocido';
-            console.log(`Error parseando JSON para ${section}:`, errorMessage);
-            return null;
-        }
-        
-        const sectionData = parsedPlan[section] || parsedPlan;
-        
-        if (!sectionData || typeof sectionData !== 'object') {
-            if (attempts >= maxAttempts) {
-                console.log(`Estructura incorrecta en último intento, usando plan de emergencia...`);
-                return this.generateEmergencyPlan(section, exactMealNames, params);
-            }
-            console.log(`Estructura incorrecta para ${section}:`, typeof sectionData);
-            return null;
-        }
-
-        // VALIDACIÓN Y CORRECCIÓN
-        const validationResult = this.validateSectionData(sectionData, exactMealNames, usedMeals, attempts, maxAttempts, params);
-
-        // SIEMPRE aceptar el resultado ya corregido
-        console.log(`${section} completado (nivel: ${validationResult.level})`);
-
-        if (validationResult.warnings.length > 0) {
-            console.log(`Correcciones aplicadas:`, validationResult.warnings);
-        }
-
-        if (validationResult.issues.length > 0) {
-            console.log(`Issues menores:`, validationResult.issues);
-        }
-
-        return validationResult.cleanedData;
+    generatedContent: string,
+    section: string,
+    exactMealNames: any,
+    usedMeals: string[],
+    attempts: number,
+    maxAttempts: number,
+    params: MealPlanParams
+): Promise<any> {
+    if (!generatedContent) {
+        console.log(`No se recibió contenido para ${section}`);
+        return null;
     }
+
+    // VALIDACIÓN 1: ALIMENTOS PROHIBIDOS EN CONTENIDO CRUDO
+    if (params.alimentos_evitar && params.alimentos_evitar.length > 0) {
+        const validation = this.validateForbiddenIngredients(generatedContent, params.alimentos_evitar);
+        if (!validation.isValid) {
+            console.log(`🚫 Alimentos prohibidos detectados en ${section} (intento ${attempts}):`, validation.violations);
+            
+            // Si no es el último intento, rechazar y reintentar
+            if (attempts < maxAttempts) {
+                console.log(`❌ Rechazando ${section} por alimentos prohibidos, reintentando...`);
+                return null;
+            } else {
+                console.log(`⚠️ Último intento con violaciones, generando plan de emergencia sin alimentos prohibidos...`);
+                return this.generateEmergencyPlan(section, exactMealNames, params);
+            }
+        } else {
+            console.log(`✅ Validación de alimentos prohibidos pasada para ${section}`);
+        }
+    }
+
+    // Detectar markdown temprano
+    if (generatedContent.includes('```') && attempts <= 2) {
+        console.log(`Detectado markdown en respuesta de ${section}, reintentando...`);
+        return null;
+    }
+
+    console.log(`Contenido generado para ${section} (primeros 200 chars):`, generatedContent.substring(0, 200) + '...');
+
+    // Limpiar JSON
+    const cleanJson = extractJsonFromMarkdown(generatedContent);
+    
+    // Validación JSON básica
+    if (!cleanJson.startsWith('{') || !cleanJson.endsWith('}')) {
+        if (attempts >= maxAttempts) {
+            console.log(`JSON malformado en último intento, usando plan de emergencia...`);
+            return this.generateEmergencyPlan(section, exactMealNames, params);
+        }
+        console.log(`Contenido no es JSON válido para ${section}`);
+        return null;
+    }
+    
+    let parsedPlan;
+    try {
+        parsedPlan = JSON.parse(cleanJson);
+        console.log(`JSON parseado correctamente para ${section}`);
+    } catch (parseError: unknown) {
+        if (attempts >= maxAttempts) {
+            console.log(`Error de parsing en último intento, usando plan de emergencia...`);
+            return this.generateEmergencyPlan(section, exactMealNames, params);
+        }
+        const errorMessage = parseError instanceof Error ? parseError.message : 'Error desconocido';
+        console.log(`Error parseando JSON para ${section}:`, errorMessage);
+        return null;
+    }
+    
+    const sectionData = parsedPlan[section] || parsedPlan;
+    
+    if (!sectionData || typeof sectionData !== 'object') {
+        if (attempts >= maxAttempts) {
+            console.log(`Estructura incorrecta en último intento, usando plan de emergencia...`);
+            return this.generateEmergencyPlan(section, exactMealNames, params);
+        }
+        console.log(`Estructura incorrecta para ${section}:`, typeof sectionData);
+        return null;
+    }
+
+    // VALIDACIÓN 2: ALIMENTOS PROHIBIDOS EN JSON PARSEADO
+    if (params.alimentos_evitar && params.alimentos_evitar.length > 0) {
+        const jsonValidation = this.validateForbiddenIngredients(JSON.stringify(sectionData), params.alimentos_evitar);
+        if (!jsonValidation.isValid) {
+            console.log(`🚫 Alimentos prohibidos detectados en JSON parseado de ${section} (intento ${attempts}):`, jsonValidation.violations);
+            
+            if (attempts < maxAttempts) {
+                console.log(`❌ Rechazando JSON parseado por alimentos prohibidos, reintentando...`);
+                return null;
+            } else {
+                console.log(`⚠️ Último intento con violaciones en JSON, generando plan de emergencia...`);
+                return this.generateEmergencyPlan(section, exactMealNames, params);
+            }
+        } else {
+            console.log(`✅ Validación de JSON parseado pasada para ${section}`);
+        }
+    }
+
+    // VALIDACIÓN Y CORRECCIÓN existente (mantener todo el código actual)
+    const validationResult = this.validateSectionData(sectionData, exactMealNames, usedMeals, attempts, maxAttempts, params);
+
+    // SIEMPRE aceptar el resultado ya corregido
+    console.log(`${section} completado y validado (nivel: ${validationResult.level})`);
+
+    if (validationResult.warnings.length > 0) {
+        console.log(`Correcciones aplicadas:`, validationResult.warnings);
+    }
+
+    if (validationResult.issues.length > 0) {
+        console.log(`Issues menores:`, validationResult.issues);
+    }
+
+    return validationResult.cleanedData;
+}
 }
 
 export const mealPlanService = new MealPlanService();
